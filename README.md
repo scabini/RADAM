@@ -43,3 +43,20 @@ Pay attention to args:
  * ```--data_path``` (path to load/download datasets)
  * ```--output_path``` (path to save extracted features and classification results, need 2 subfolders inside: feature_matrix/ and classification/)
  
+ 
+## Ideas for the new method 
+* Given a trained backbone, feature maps can be obtained from the output of its layers. 
+
+<p align="center">
+    <img src="figures/feature_map_mixing.jpg" height="400px">
+</p>
+
+* After obtaining a matrix (rows=samples, columns=features) from the feature map, an ELM auto-encoder can be trained:
+
+<p align="center">
+    <img src="figures/ELM_pooling.png" height="350px">
+</p>
+
+* The main idea is to use the ELM auto-encoder as a pooling layer, doing global pooling.
+  * IDEA 1: If the spatial matrix is used to train the ELM and ℓ = z = number of channels of the feature map, we can use the average output of the latent space to obtain a feature vector of size ℓ=z. This vector can be used as the representation of the feature map. ℓ can be modified to reduce/increase the the feature vector.
+  * IDEA 2: If the spectral matrix is used to train the ELM and ℓ = 1, we can use the flattened weight vector θ as a feature vector of size z. Increasing ℓ will increase the number of features by ℓ*z
