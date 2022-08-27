@@ -10,6 +10,9 @@ import os
 import ntpath
 import torch
 from torchvision.datasets import VisionDataset as Dataset
+from torchvision.datasets.utils import verify_str_arg, download_and_extract_archive
+from typing import Optional, Callable
+import pathlib
 from PIL import Image
 
 #this is for getting all images in a directory (including subdirs)
@@ -30,7 +33,8 @@ class USPtex(Dataset):
     """USPtex - natural texture dataset
     Backes, André Ricardo, Dalcimar Casanova, and Odemir Martinez Bruno. 
     "Color texture analysis based on fractal descriptors." 
-    Pattern Recognition (2012)    
+    Pattern Recognition (2012)  
+    http://scg-turing.ifsc.usp.br/data/bases/USPtex.zip
     """    
     def __init__(self, root, transform=None, load_all=True, grayscale=False):
         """
@@ -40,13 +44,13 @@ class USPtex(Dataset):
                 on a sample.
         """
         self.grayscale=grayscale
-        self.files = getListOfFiles(root)
+        self._image_files = getListOfFiles(root)
         self.transform = transform
         self.load_all=load_all
         self.data = []
         self.targets = []
         if self.load_all:
-            for img_name in self.files:
+            for img_name in self._image_files:
                 if self.grayscale:
                     self.data.append(Image.open(img_name).convert('L').convert('RGB'))
                 else:
@@ -65,7 +69,7 @@ class USPtex(Dataset):
             image = self.data[idx]
             target = self.targets[idx]
         else:
-            img_name = self.files[idx]
+            img_name = self._image_files[idx]
             if self.grayscale:
                 image = Image.open(img_name).convert('L').convert('RGB')
             else:
@@ -83,7 +87,8 @@ class LeavesTex1200(Dataset):
     """1200tex - leaf textures
     Casanova, Dalcimar, Jarbas Joaci de Mesquita Sá Junior, and Odemir Martinez Bruno.
     "Plant leaf identification using Gabor wavelets."
-    International Journal of Imaging Systems and Technology (2009)    
+    International Journal of Imaging Systems and Technology (2009) 
+    http://scg-turing.ifsc.usp.br/data/bases/LeavesTex1200.zip
     """
     def __init__(self, root, transform=None, load_all=True, grayscale=False):
         """
@@ -93,13 +98,13 @@ class LeavesTex1200(Dataset):
                 on a sample.
         """
         self.grayscale=grayscale
-        self.files = getListOfFiles(root)
+        self._image_files = getListOfFiles(root)
         self.transform = transform
         self.load_all=load_all
         self.data = []
         self.targets = []
         if self.load_all:
-            for img_name in self.files:
+            for img_name in self._image_files:
                 if self.grayscale:
                     self.data.append(Image.open(img_name).convert('L').convert('RGB'))
                 else:
@@ -116,7 +121,7 @@ class LeavesTex1200(Dataset):
             image = self.data[idx]
             target = self.targets[idx]
         else:
-            img_name = self.files[idx]
+            img_name = self._image_files[idx]
             if self.grayscale:
                 image = Image.open(img_name).convert('L').convert('RGB')
             else:
@@ -149,13 +154,13 @@ class MBT(Dataset):
                 on a sample.
         """
         self.grayscale=grayscale
-        self.files = getListOfFiles(root)
+        self._image_files = getListOfFiles(root)
         self.transform = transform
         self.load_all=load_all
         self.data = []
         self.targets = []
         if self.load_all:
-            for img_name in self.files:
+            for img_name in self._image_files:
                 if self.grayscale:
                     self.data.append(Image.open(img_name).convert('L').convert('RGB'))
                 else:
@@ -173,7 +178,7 @@ class MBT(Dataset):
             image = self.data[idx]
             target = self.targets[idx]
         else:
-            img_name = self.files[idx]
+            img_name = self._image_files[idx]
             if self.grayscale:
                 image = Image.open(img_name).convert('L').convert('RGB')
             else:
@@ -192,6 +197,7 @@ class KTH_TIPS2_b(Dataset):
      "Class-specific material categorisation."
      Tenth IEEE International Conference on Computer Vision (ICCV'05)
      Volume 1. Vol. 2. IEEE, 2005.
+     https://www.csc.kth.se/cvap/databases/kth-tips/kth-tips2-b_col_200x200.tar
      
      Validation splits: ?, some papers use random 10-fold, some use subfolders
                         as folds
@@ -212,16 +218,16 @@ class KTH_TIPS2_b(Dataset):
          self.split_names = {'sample_a':0, 'sample_b':1, 'sample_c':2, 'sample_d':3}
          
          self.grayscale = grayscale         
-         self.files = getListOfFiles(root)         
-         self.files = [file for file in self.files if not file.endswith('.txt') and not file.endswith('.pdf')]
+         self._image_files = getListOfFiles(root)         
+         self._image_files = [file for file in self._image_files if not file.endswith('.txt') and not file.endswith('.pdf')]
          
          self.transform = transform
          self.load_all=load_all
          self.data = []
          self.targets = []
-         self.splits = [self.split_names[img_name.split('/')[-2]] for img_name in self.files]
+         self.splits = [self.split_names[img_name.split('/')[-2]] for img_name in self._image_files]
          if self.load_all:
-             for img_name in self.files:
+             for img_name in self._image_files:
                  if self.grayscale:
                      self.data.append(Image.open(img_name).convert('L').convert('RGB'))
                  else:
@@ -235,19 +241,16 @@ class KTH_TIPS2_b(Dataset):
 
      def __getitem__(self, idx):
          if torch.is_tensor(idx):
-             idx = idx.tolist()
-         
+             idx = idx.tolist()         
          if self.load_all:
              image = self.data[idx]
              target = self.targets[idx]
          else:
-             img_name = self.files[idx]
-             
+             img_name = self._image_files[idx]             
              if self.grayscale:
                  image = Image.open(img_name).convert('L').convert('RGB')
              else:
-                 image = Image.open(img_name).convert('RGB') 
-             
+                 image = Image.open(img_name).convert('RGB')              
              target = self.class_names[img_name.split('/')[-3]]
          
          if self.transform:
@@ -260,7 +263,8 @@ class FMD(Dataset):
      """Flickr Material Dataset (FMD)
      Sharan, Lavanya, Ruth Rosenholtz, and Edward Adelson.
      "Material perception: What can you see in a brief glance?."
-     Journal of Vision 9.8 (2009): 784-784.     
+     Journal of Vision 9.8 (2009): 784-784.   
+     http://people.csail.mit.edu/celiu/CVPR2010/FMD/FMD.zip
      """     
      def __init__(self, root, transform=None, load_all=True, grayscale=False):
          """
@@ -272,8 +276,8 @@ class FMD(Dataset):
              grasycale: either to use grayscale images or not
          """
          self.grayscale = grayscale         
-         self.files = getListOfFiles(os.path.join(root, 'image'))
-         self.files = [file for file in self.files if not file.endswith('.asv') 
+         self._image_files = getListOfFiles(os.path.join(root, 'image'))
+         self._image_files = [file for file in self._image_files if not file.endswith('.asv') 
                        and not file.endswith('.m')
                        and not file.endswith('.db')]
          self.class_names = {'fabric':0, 'foliage':1, 'glass':2, 'leather':3, 'metal':4,
@@ -283,7 +287,7 @@ class FMD(Dataset):
          self.data = []
          self.targets = []
          if self.load_all:
-             for img_name in self.files:
+             for img_name in self._image_files:
                  if self.grayscale:
                      self.data.append(Image.open(img_name).convert('L').convert('RGB'))
                  else:
@@ -302,7 +306,7 @@ class FMD(Dataset):
              image = self.data[idx]
              target = self.targets[idx]
          else:
-             img_name = self.files[idx]
+             img_name = self._image_files[idx]
              
              if self.grayscale:
                  image = Image.open(img_name).convert('L').convert('RGB')
@@ -322,6 +326,7 @@ class Outex(Dataset):
       Ojala, Timo, et al.
       "Outex-new framework for empirical evaluation of texture analysis algorithms."
       2002 International Conference on Pattern Recognition. Vol. 1. IEEE, 2002.
+      http://scg-turing.ifsc.usp.br/data/bases/Outex.zip
       """     
       def __init__(self, root, split, suite='13', transform=None, load_all=True, grayscale=False):
           """
@@ -339,7 +344,7 @@ class Outex(Dataset):
           self.transform = transform
           self.load_all=load_all
           self.data = [] 
-          self.files = []
+          self._image_files = []
           self.targets = [] 
                     
           with open(root + '/' + self.suite + '/000/' + split +'.txt','r') as f:
@@ -347,11 +352,11 @@ class Outex(Dataset):
               f.close()
           lines.pop(0)
           for item in lines:
-              self.files.append(root + '/' + self.suite + '/images/' + item.split(' ')[0])
+              self._image_files.append(root + '/' + self.suite + '/images/' + item.split(' ')[0])
               self.targets.append(int(item.split(' ')[1]))
    
           if self.load_all:
-              for img_name in self.files:                  
+              for img_name in self._image_files:                  
                 if self.grayscale:
                     self.data.append(Image.open(img_name).convert('L').convert('RGB'))
                 else:
@@ -368,7 +373,7 @@ class Outex(Dataset):
               image = self.data[idx]
               
           else:
-              img_name = self.files[idx]
+              img_name = self._image_files[idx]
               
               if self.grayscale:
                   image = Image.open(img_name).convert('L').convert('RGB')
@@ -381,3 +386,109 @@ class Outex(Dataset):
               image = self.transform(image)
 
           return image, target
+      
+class DTD(Dataset):
+    """`Describable Textures Dataset (DTD) <https://www.robots.ox.ac.uk/~vgg/data/dtd/>`_.
+
+    Args:
+        root (string): Root directory of the dataset.
+        split (string, optional): The dataset split, supports ``"train"`` (default), ``"val"``, or ``"test"``.
+        partition (int, optional): The dataset partition. Should be ``1 <= partition <= 10``. Defaults to ``1``.
+
+            .. note::
+
+                The partition only changes which split each image belongs to. Thus, regardless of the selected
+                partition, combining all splits will result in all images.
+
+        transform (callable, optional): A function/transform that  takes in a PIL image and returns a transformed
+            version. E.g, ``transforms.RandomCrop``.
+        target_transform (callable, optional): A function/transform that takes in the target and transforms it.
+        download (bool, optional): If True, downloads the dataset from the internet and
+            puts it in root directory. If dataset is already downloaded, it is not
+            downloaded again. Default is False.
+    """
+
+    _URL = "https://www.robots.ox.ac.uk/~vgg/data/dtd/download/dtd-r1.0.1.tar.gz"
+    _MD5 = "fff73e5086ae6bdbea199a49dfb8a4c1"
+
+    def __init__(
+        self,
+        root: str,
+        transform: Optional[Callable] = None,
+        target_transform: Optional[Callable] = None,
+        download: bool = False,
+    ) -> None:
+
+        super().__init__(root, transform=transform, target_transform=target_transform)
+        self._base_folder = pathlib.Path(self.root) / type(self).__name__.lower()
+        self._data_folder = self._base_folder / "dtd"
+        self._meta_folder = self._data_folder / "labels"
+        self._images_folder = self._data_folder / "images"
+
+        if download:
+            self._download()
+
+        if not self._check_exists():
+            raise RuntimeError("Dataset not found. You can use download=True to download it")
+
+        self._image_files = []
+        classes = []
+        self.names = []
+        with open(self._meta_folder / "labels_joint_anno.txt") as file:
+            for line in file:
+                strs = line.strip().split("/")
+                cls= strs[0]
+                name = strs[1].strip().split(" ")[0]
+                self._image_files.append(self._images_folder.joinpath(cls, name))
+                self.names.append(name)
+                classes.append(cls)
+
+        self.name_to_idx = dict(zip(self.names, range(len(self.names))))
+        self.classes = sorted(set(classes))
+        self.class_to_idx = dict(zip(self.classes, range(len(self.classes))))
+        self._labels = [self.class_to_idx[cls] for cls in classes]
+
+    def __len__(self) -> int:
+        return len(self._image_files)
+
+    def __getitem__(self, idx):
+        image_file, label = self._image_files[idx], self._labels[idx]
+        image = Image.open(image_file).convert("RGB")
+
+        if self.transform:
+            image = self.transform(image)
+
+        if self.target_transform:
+            label = self.target_transform(label)
+
+        return image, label
+    
+    def get_indexes(self,split="train", partition=1):
+        
+        verify_str_arg(split, "split", ("train", "val", "test"))
+        if not isinstance(partition, int) and not (1 <= partition <= 10):
+            raise ValueError(
+                f"Parameter 'partition' should be an integer with `1 <= partition <= 10`, "
+                f"but got {partition} instead"
+            )
+        
+        indexes = []
+        
+        with open(self._meta_folder / f"{split}{partition}.txt") as file:
+            for line in file:
+                name = line.strip().split("/")[1]
+                indexes.append(self.name_to_idx[name])                
+        
+        return indexes
+
+    def extra_repr(self) -> str:
+        return f"split={self._split}, partition={self._partition}"
+
+    def _check_exists(self) -> bool:
+        return os.path.exists(self._data_folder) and os.path.isdir(self._data_folder)
+
+    def _download(self) -> None:
+        if self._check_exists():
+            return
+        download_and_extract_archive(self._URL, download_root=str(self._base_folder), md5=self._MD5)
+        

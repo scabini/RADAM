@@ -12,7 +12,6 @@ import numpy as np
 import random
 import torch
 import torch.nn as nn
-from torchvision import transforms
 import models
 
 ###method is a string, the model name like in timm. If you put '-random' in it,
@@ -36,7 +35,9 @@ def extract_features(method, dataset, pooling, input_dimm=224, depth='last', mul
         
     ### Creating the model
     if '-random' in method: #random features?
-        model = models.timm_random_features(method.split('-')[0])  
+        model = models.timm_random_features(method.split('-')[0]) 
+    elif 'aggregationGAP' in pooling:
+        model = models.timm_isotropic_features(method.split('-')[0], output_stride=-1)
     elif '-aggregation' in method:
         model = models.timm_isotropic_features(method.split('-')[0])
     else: #else: try to download/create the pretrained version
@@ -44,25 +45,11 @@ def extract_features(method, dataset, pooling, input_dimm=224, depth='last', mul
       
     model.net.to(device)
     
-    # ImageNet normalization parameters
-    averages =  (0.485, 0.456, 0.406)
-    variances = (0.229, 0.224, 0.225)
-    input_dimm = input_dimm    
-    #Data loader
-    _transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(averages, variances),
-        transforms.Resize((input_dimm,input_dimm))
-        # transforms.CenterCrop(128)
-    ])    
-    
-    dataset= dataset(_transform) 
-
     data_loader = torch.utils.data.DataLoader(dataset,
                           batch_size=batch_size, shuffle = False, drop_last=False, pin_memory=True, num_workers=num_workers)  
    
-    feature_size = model.get_features(torch.zeros((1,3, input_dimm,input_dimm)).to(device), depth, pooling).cpu().detach().numpy().shape[1]
-         
+    feature_size = model.get_features(torch.ones((1,3, input_dimm,input_dimm)).to(device), depth, pooling).cpu().detach().numpy().shape[1]
+    # model()     
     print('extracting', feature_size, 'features...')
     X = np.empty((0,feature_size))
     Y = np.empty((0))

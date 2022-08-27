@@ -1,5 +1,8 @@
 Experimenter.py
 Experimenter_training.py
 gather_stored_results.py
+build_latexMatrix.py
 backboneSearch.xlsx
+test.py
 __pycache__/
+.vscode/

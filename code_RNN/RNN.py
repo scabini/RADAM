@@ -8,43 +8,41 @@ Created on Thu Aug 11 12:58:54 2022
 import numpy as np
 from scipy import stats
 from scipy.linalg import orth
+import sklearn
 
-def RNN_AE(X,Q=10):
-    X = stats.zscore(X) # z-score applied in each feature
-    # avg, varr = np.mean(X, axis=1), np.var(X, axis=1)
-    
-    X = np.nan_to_num(X)
-            
-    P = X.shape[0] #get the size of input layer
-    N = X.shape[1] #get the number of input vectors
-   
-    # W = LCG(Q,P) #generate the orthonormal weights
-    
-    W = my_orth(LCG(Q,P)) #generate the orthonormal weights with our own method
-    
-    # if P > Q:
-    #     W = orth(W.transpose(),rcond=0.0).transpose()
-    # else:
-    #     W = orth(W,rcond=0.0)
-    
-    # bias = LCG(Q,1) # generate bias weights of the hidden layers
-    bias = my_orth(LCG(Q,1)) # generate bias weights of the hidden layers
 
-    bias = np.tile(bias,(1,N)) # Extend the bias matrix to match the demention of Z
-     
-    Z = np.add(np.matmul(W,X), bias) # W*X + bias
-    Z = 1 / (1 + np.exp(-Z)) # activation function
-
-    #calculating the output weights: Beta = XZ'(ZZ' + lamb*eye(Q))^-1
-    lamb = 0.001
-    Beta = np.dot(np.matmul(X,Z.transpose()), np.linalg.inv(np.matmul(Z,Z.transpose()) + lamb * np.eye(Q)))
-    
-    erro = np.matmul(Beta, Z) - X
-    erro = np.mean(erro**2)
-    # print(erro)
-    #return the trained output weights
-    # Beta = np.nan_to_num(Beta)
-    return Beta, erro
+class RNN_AE(): #NEW TORCH VERSION
+    def __init__(self, Q, P, N):
+        super(RNN_AE, self).__init__() 
+        self.Q=Q
+        self.bias = np.ones((Q,1)) # generate bias weights of the hidden layers
+        self.bias = np.tile(self.bias,(1,N)) # Extend the bias matrix to match the demention of Z
+        
+        # W = LCG(Q,P+1) #generate the orthonormal weights   
+        self.W = my_orth(LCG(Q,P)) #generate the orthonormal weights with our own method
+        # W = my_rand(Q,P) #generate the orthonormal weights with our own method
+        # W = my_orth(my_rand(Q,P+1)) #generate the orthonormal weights with our own method
+        
+    def fit(self, X, axis):
+        # global W_
+        # global bias_
+        # X = stats.zscore(X, axis=axis) # z-score applied in each feature
+        # X = sklearn.preprocessing.normalize(X, norm='l1', axis=1, copy=True, return_norm=False)
+        # X = np.nan_to_num(X)
+       
+        Z = np.add(np.matmul(self.W,X), self.bias) # W*X + bias
+        # Z = np.matmul(W,X)
+        Z = 1 / (1 + np.exp(-Z)) # activation function
+        # Z= np.vstack((Z, bias))
+        #calculating the output weights: Beta = XZ'(ZZ' + lamb*eye(Q))^-1
+        lamb = 0.001
+        Beta = np.matmul(np.matmul(X,Z.transpose()), np.linalg.inv(np.matmul(Z,Z.transpose()) + lamb * np.eye(self.Q)))
+        
+        # erro = np.matmul(Beta, Z) - X
+        # erro = np.mean(erro**2)
+        erro=0
+        # print(Beta.shape)
+        return Beta, erro
 
 ### first implementation, had to append at each iteration (costly)
 # def LCG(m,n):
@@ -71,7 +69,7 @@ def RNN_AE(X,Q=10):
 def LCG(m,n):
     L = m*n;
     if L == 1:
-        return np.ones((1,1))        
+        return np.ones((1,1))
     else:        
         V = np.zeros(L, dtype=np.float64)
         
@@ -81,15 +79,23 @@ def LCG(m,n):
             V[0] = L+1.0
             
         # V=np.array([L+1.0], dtype=np.float64);
-        a = L+2.0;
-        b = L+3.0;
-        c = L*L;
+        a = L+2.0; #a
+        b = L+3.0; #b
+        c = L*L; #m
         for x in range(1,(m*n)):
             V[x] = (a*V[x-1]+b) % c
   
         V = stats.zscore(V)
+        # print(np.min(V), np.max(V))
         V.resize((m,n))
         return V
+
+# GLOBAL_WEIGHTS_ = LCG(100*2, 512+100)
+
+# def my_rand(m,n):
+#     np.random.seed(66699)
+#     return np.random.normal(loc=0.0, scale=1.0, size=(m,n))
+    # return np.random.normal(loc=0.0, scale=np.sqrt(2/(m+n)), size=(m,n))
     
     
 def my_orth(matrix):
@@ -108,5 +114,28 @@ def my_orth(matrix):
         q=q.transpose()
         
     return q
+
+# def pi_initializer(m,n):
+#     if m*n == 1:
+#         return np.ones((1,1), dtype=np.float64)
+#     else:
+#         digits = [i/9.0 for i in list(pi_digits(m*n))]
+#         digits = stats.zscore(np.asarray(digits, dtype=np.float64)).reshape((m,n))
+#         # print(digits)
+#         return digits
     
-    
+# def pi_digits(x):
+#     """Generate x digits of Pi."""
+#     k,a,b,a1,b1 = 2,4,1,12,4
+#     while x > 0:
+#         p,q,k = k * k, 2 * k + 1, k + 1
+#         a,b,a1,b1 = a1, b1, p*a + q*a1, p*b + q*b1
+#         d,d1 = a/b, a1/b1
+#         while d == d1 and x > 0:
+#             yield int(d)
+#             x -= 1
+#             a,a1 = 10*(a % b), 10*(a1 % b1)
+#             d,d1 = a/b, a1/b1
+            
+            
+            
