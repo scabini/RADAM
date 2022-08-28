@@ -79,4 +79,5 @@ dependencies:
   - zstd=1.5.2
   - pip:
     - timm==0.5.4
+    - einops==0.4.1
 prefix: /home/scabini/anaconda3/envs/timm_tfe
