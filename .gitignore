@@ -2,7 +2,9 @@ Experimenter.py
 Experimenter_training.py
 gather_stored_results.py
 build_latexMatrix.py
-backboneSearch.xlsx
+*.xlsx
 test.py
 __pycache__/
 .vscode/
+latex.txt
+TESTS_*

@@ -152,6 +152,8 @@ if __name__ == "__main__":
                           
                         if 'DTD' in args.dataset:
                             train_index = dataset.get_indexes(split="train", partition=partition+1)
+                            val_index = dataset.get_indexes(split="val", partition=partition+1)
+                            train_index = train_index + val_index
                             test_index = dataset.get_indexes(split="test", partition=partition+1)
                         else:
                             train_index, test_index = next(crossval) 
@@ -165,12 +167,14 @@ if __name__ == "__main__":
                                                                 transform=_transform) 
                             
                             X_, Y_ = extract_features(args.model, dataset, input_dimm=args.input_dimm, depth=args.depth, pooling=args.pooling,
-                                                      batch_size=args.batch_size, multigpu=args.multigpu)       
+                                                      batch_size=args.batch_size, multigpu=args.multigpu, seed=seed)       
                                         
                             # with open(file, 'wb') as f:
                             #     pickle.dump([X_, Y_, dataset._image_files], f)
                                 
                         train_index = dataset.get_indexes(split="train", partition=partition+1)
+                        val_index = dataset.get_indexes(split="val", partition=partition+1)
+                        train_index = train_index + val_index
                         test_index = dataset.get_indexes(split="test", partition=partition+1)
                         
                         X_train, Y_train = X_[train_index], Y_[train_index]
@@ -183,14 +187,14 @@ if __name__ == "__main__":
                                                     transform=_transform) 
                         
                         X_train,Y_train = extract_features(args.model, train_dataset, input_dimm=args.input_dimm, depth=args.depth, pooling=args.pooling,
-                                                           batch_size=args.batch_size, multigpu=args.multigpu)        
+                                                           batch_size=args.batch_size, multigpu=args.multigpu, seed=seed)        
                         
                         test_dataset= DATASETS_['Outex'](root=outex_path, split='test',
                                                     suite=args.dataset.split('Outex')[1],
                                                     transform=_transform)
                         
                         X_test,Y_test = extract_features(args.model, test_dataset, input_dimm=args.input_dimm, depth=args.depth, pooling=args.pooling,
-                                                         batch_size=args.batch_size, multigpu=args.multigpu)
+                                                         batch_size=args.batch_size, multigpu=args.multigpu, seed=seed)
                         # with open(file, 'wb') as f:
                         #     pickle.dump([X_train, Y_train, X_test, Y_test, train_dataset._image_files, test_dataset._image_files], f)
                         
@@ -200,7 +204,7 @@ if __name__ == "__main__":
                                                              transform= _transform, grayscale=args.grayscale)
                             
                             X_,Y_ = extract_features(args.model, dataset, input_dimm=args.input_dimm, depth=args.depth, pooling=args.pooling,
-                                                     batch_size=args.batch_size, multigpu=args.multigpu) 
+                                                     batch_size=args.batch_size, multigpu=args.multigpu, seed=seed) 
                             
                             # with open(file, 'wb') as f:
                             #     pickle.dump([X_, Y_, dataset._image_files], f)
@@ -223,8 +227,10 @@ if __name__ == "__main__":
              
     
             if not os.path.isfile(file2):
+                if partition == 0: 
+                    print(time.time()-start_time, 's so far, now classifying...', (X_train.shape, X_test.shape))
                 gtruth_.append(Y_test)
-                with parallel_backend('threading', n_jobs=16):
+                with parallel_backend('threading', n_jobs=total_cores*2):
                                        
                     KNN = KNeighborsClassifier(n_neighbors=1, weights='uniform', algorithm='auto', 
                                                 leaf_size=30, p=2, metric='minkowski', metric_params=None)
@@ -269,11 +275,11 @@ if __name__ == "__main__":
                                   max_iter=-1, decision_function_shape='ovr', 
                                   break_ties=False, random_state=seed)
                     
-                    param_space = dict(C=[1, 3, 100],                                 
-                                  kernel=['linear', 'rbf'],
-                                  tol=[1e-6, 1e-3])  
+                    # param_space = dict(C=[1, 3, 100],                                 
+                    #               kernel=['linear', 'rbf'],
+                    #               tol=[1e-6, 1e-3])  
                     
-                    SVM = RandomizedSearchCV(SVM, param_space, n_iter=10, n_jobs=-1, cv=2, random_state=seed)
+                    # SVM = RandomizedSearchCV(SVM, param_space, n_iter=10, n_jobs=total_cores*2, cv=2, random_state=seed)
                                         
                     SVM.fit(X_train,Y_train)
                     preds=SVM.predict(X_test)            
@@ -297,11 +303,11 @@ if os.path.isfile(file2):
     with open(file2, 'rb') as f:
         results = pickle.load(f) 
     
-# print('Classification results: ', sep=' ', end='', flush=True)   
-# print('KNN:', f"{np.round(np.mean(results['accs_KNN']), 2):.2f} (+-{np.round(np.std(results['accs_KNN']), 2):.2f})", sep=' ', end='', flush=True)      
-# print(' || LDA:', f"{np.round(np.mean(results['accs_LDA']), 2):.2f} (+-{np.round(np.std(results['accs_LDA']), 2):.2f})", sep=' ', end='', flush=True)      
-# print(' || SVM:', f"{np.round(np.mean(results['accs_SVM']), 2):.2f} (+-{np.round(np.std(results['accs_SVM']), 2):.2f})", sep=' ', end='', flush=True)      
-print('took', time.time()-start_time,'seconds', '-' * 70)
+print('Acc: ', sep=' ', end='', flush=True)   
+print('KNN:', f"{np.round(np.mean(results['accs_KNN']), 2):.2f} (+-{np.round(np.std(results['accs_KNN']), 2):.2f})", sep=' ', end='', flush=True)      
+print(' || LDA:', f"{np.round(np.mean(results['accs_LDA']), 2):.2f} (+-{np.round(np.std(results['accs_LDA']), 2):.2f})", sep=' ', end='', flush=True)      
+print(' || SVM:', f"{np.round(np.mean(results['accs_SVM']), 2):.2f} (+-{np.round(np.std(results['accs_SVM']), 2):.2f})", sep=' ', end='', flush=True)      
+print('\ntook', time.time()-start_time,'seconds', '-' * 70)
 # print('\n#### FINAL METRICS ###')  
 # print(args.model, args.dataset)      
 # print('KNN:', f"{np.round(np.mean(results['accs_KNN']), 2):.2f} (+-{np.round(np.std(results['accs_KNN']), 2):.2f})")
@@ -319,7 +325,7 @@ print('took', time.time()-start_time,'seconds', '-' * 70)
 #         f"{np.round(np.mean(results['accs_SVM']), 2):.2f}" + r"{\tiny$\pm$" + f"{np.round(np.std(results['accs_SVM']), 2):.2f}"+ r"}")            
             
        
-print(f"{np.round(np.mean(results['accs_SVM']), 1):.1f}" + r"{\tiny$\pm$" + f"{np.round(np.std(results['accs_SVM']), 1):.1f}"+ r"}")            
+# print(f"{np.round(np.mean(results['accs_SVM']), 1):.1f}" + r"{\tiny$\pm$" + f"{np.round(np.std(results['accs_SVM']), 1):.1f}"+ r"}")            
 
 # print(f"{np.round(np.mean(results['accs_SVM']), 1):.1f}\\\\")
 

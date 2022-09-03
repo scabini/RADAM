@@ -18,7 +18,7 @@ import models
 #   random weights are used for feature extraction. Otherwise, tries to
 #   download pretrained weights
 #   the random seed is only for using random models
-def extract_features(method, dataset, pooling, input_dimm=224, depth='last', multigpu=False, batch_size=1, seed=666999):
+def extract_features(method, dataset, pooling, seed, input_dimm=224, depth='last', multigpu=False, batch_size=1):
     
     torch.manual_seed(seed)
     random.seed(seed)
@@ -28,13 +28,15 @@ def extract_features(method, dataset, pooling, input_dimm=224, depth='last', mul
         
     # gpus = torch.cuda.device_count()
     total_cores=multiprocessing.cpu_count()
-    num_workers = total_cores // 2
+    num_workers = total_cores
 
     # print("System has", gpus, "GPUs and", total_cores, "CPU cores. Using", num_workers, "cores for data loaders.")
     device = "cuda" if torch.cuda.is_available() else "cpu"
         
     ### Creating the model
-    if '-random' in method: #random features?
+    if 'vit_' in method or 'mixer_' in method or 'convmixer_' in method or 'coat_' in method or 'cait_' in method or 'beit_' in method or 'deit_' in method: #transformers, mixers, or new methods?
+        model = models.timm_attention_features(method)         
+    elif '-random' in method: #random features?
         model = models.timm_random_features(method.split('-')[0]) 
     elif 'aggregationGAP' in pooling:
         model = models.timm_isotropic_features(method.split('-')[0], output_stride=-1)

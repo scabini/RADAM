@@ -1,30 +1,25 @@
 
 import torch
-import torch.nn as nn
-from scipy import stats
-
+from weight_rewiring import PA_rewiring_torch
 ###############
 # ELM
 ###############
 
-class ELM():
-    def __init__(self, input_size, h_size, device=None):
-        self._input_size = input_size
-        self._h_size = h_size
-        self._output_size = input_size
+class ELM_AE():
+    def __init__(self, Q, P, N, device):
+        self._input_size = P
+        self._h_size = Q
+        self._output_size = P
         self._device = device
         self._lambda = 0.001
         
-        if(device):
-            self._alpha = my_orth(LCG(self._input_size, self._h_size)).to(device)
-            self._bias = my_orth(LCG(self._h_size, 1)).to(device)
-            self._eye = torch.eye(self._h_size, dtype=torch.float).to(device)
-        else:
-            self._alpha = my_orth(LCG(self._input_size, self._h_size))
-            self._bias = my_orth(LCG(self._h_size, 1))
-            self._eye = torch.eye(self._h_size, dtype=torch.float)
-            
-            
+        self._alpha = my_orth(LCG(self._h_size, self._input_size)).to(device)
+        # self._alpha = PA_rewiring_torch(my_orth(LCG(self._h_size, self._input_size)),stochastic=False).to(device)
+        # self._bias = my_orth(LCG(self._h_size, 1))
+        self._bias = torch.ones((self._h_size, 1))
+        self.bias = torch.tile(self._bias, (1,N)).to(device)
+        self._eye = torch.eye(self._h_size, dtype=torch.float).to(device)
+ 
         self._activation = torch.sigmoid
         
     # def predict(self, x):
@@ -33,16 +28,16 @@ class ELM():
         
         # return out
     
-    def fit(self, x):
+    def fit(self, x):       
         
-        bias = torch.tile(self._bias, (1,x.shape[1]))
-        temp = torch.mm(self._alpha.t(), x)
-        H = self._activation(torch.add(temp, bias))
+        temp = torch.mm(self._alpha, x)
+        H = self._activation(torch.add(temp, self.bias))
         
         # self._beta = torch.mm(torch.mm(x, H.t()), torch.linalg.inv(torch.mm(H, H.t()) + self._lambda * self._eye))
         
         self._beta = torch.mm(x, torch.pinverse(H))
-        
+        return self._beta
+    
     # def evaluate(self, x, t):
     #     y_pred = self.predict(x)
     #     acc = torch.sum(torch.argmax(y_pred, dim=1) == torch.argmax(t, dim=1)).item() / len(t)
@@ -51,22 +46,6 @@ class ELM():
     def get_output_weights(self):
         return self._beta
         
-        
-
-#####################
-# Helper Functions
-#####################
-# def to_onehot(batch_size, num_classes, y, device):
-#     # One hot encoding buffer that you create out of the loop and just keep reusing
-#     y_onehot = torch.FloatTensor(batch_size, num_classes).to(device)
-#     #y = y.type(dtype=torch.long)
-#     y = torch.unsqueeze(y, dim=1)
-#     # In your for loop
-#     y_onehot.zero_()
-#     y_onehot.scatter_(1, y, 1)
-
-#     return y_onehot
-
 def LCG(m, n):
     L = m*n
     if L == 1:
@@ -88,7 +67,7 @@ def LCG(m, n):
             V[x] = (a*V[x-1]+b) % c
             
         
-        V = torch.divide(torch.subtract(V, torch.mean(V)), torch.var(V))
+        V = torch.divide(torch.subtract(V, torch.mean(V)), torch.std(V))
         # print(V)
         V = V.reshape((m,n))
         

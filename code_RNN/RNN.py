@@ -16,33 +16,29 @@ class RNN_AE(): #NEW TORCH VERSION
         super(RNN_AE, self).__init__() 
         self.Q=Q
         self.bias = np.ones((Q,1)) # generate bias weights of the hidden layers
+        # self.bias = my_orth(LCG(Q,1)) # generate bias weights of the hidden layers
         self.bias = np.tile(self.bias,(1,N)) # Extend the bias matrix to match the demention of Z
         
         # W = LCG(Q,P+1) #generate the orthonormal weights   
         self.W = my_orth(LCG(Q,P)) #generate the orthonormal weights with our own method
         # W = my_rand(Q,P) #generate the orthonormal weights with our own method
         # W = my_orth(my_rand(Q,P+1)) #generate the orthonormal weights with our own method
+        self.eye = np.eye(self.Q)
+        self.lamb = 0.001
         
-    def fit(self, X, axis):
-        # global W_
-        # global bias_
-        # X = stats.zscore(X, axis=axis) # z-score applied in each feature
-        # X = sklearn.preprocessing.normalize(X, norm='l1', axis=1, copy=True, return_norm=False)
-        # X = np.nan_to_num(X)
-       
+    def fit(self, X, axis=None):        
         Z = np.add(np.matmul(self.W,X), self.bias) # W*X + bias
-        # Z = np.matmul(W,X)
         Z = 1 / (1 + np.exp(-Z)) # activation function
-        # Z= np.vstack((Z, bias))
+     
         #calculating the output weights: Beta = XZ'(ZZ' + lamb*eye(Q))^-1
-        lamb = 0.001
-        Beta = np.matmul(np.matmul(X,Z.transpose()), np.linalg.inv(np.matmul(Z,Z.transpose()) + lamb * np.eye(self.Q)))
+        
+        Beta = np.matmul(np.matmul(X,Z.transpose()), np.linalg.inv(np.matmul(Z,Z.transpose()) + self.lamb * self.eye))
         
         # erro = np.matmul(Beta, Z) - X
         # erro = np.mean(erro**2)
-        erro=0
+        # erro=0
         # print(Beta.shape)
-        return Beta, erro
+        return Beta
 
 ### first implementation, had to append at each iteration (costly)
 # def LCG(m,n):
