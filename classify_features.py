@@ -1,11 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Jul  1 14:40:21 2022
-
-Feature extraction with timm models, and classification usgin sklearn
-
-@author: scabini
-"""
 import argparse
 
 def parse_args():
@@ -26,7 +18,7 @@ def parse_args():
     parser.add_argument('--K', type=int, default=10, help='Number of splits for K-fold stratified cross validation')
 
     parser.add_argument('--input_dimm', type=int, default=224, help='Image input size (single value, square). The standard is a forced resize to 224 (square)')
-    parser.add_argument('--batch_size', type=int, default=1, help='Batch size, increase for better speed, if you have enough VRAM')
+    parser.add_argument('--batch_size', type=int, default=128, help='Batch size, increase for better speed, if you have enough VRAM')
 
     #hyperparameters
     # WIP
@@ -69,7 +61,8 @@ if __name__ == "__main__":
                  'LeavesTex1200': datasets.LeavesTex1200,
                  'MBT': datasets.MBT,
                  'KTH-TIPS2-b': datasets.KTH_TIPS2_b,
-                 'Outex' : datasets.Outex
+                 'Outex' : datasets.Outex,
+                 'MINC': datasets.MINC
                 }
 
     ##########
@@ -116,6 +109,8 @@ if __name__ == "__main__":
             args.K = 10 #DTD have a fixed set of 10 splits
         elif 'KTH' in args.dataset:
             args.K = 4 #KTH2 have a fixed set of 4 splits
+        elif args.dataset == 'MINC':
+            args.K = 5 #MINC have a fixed set of 5 splits
             
         splits = args.K #datasets with no defined sets get randomly K-splited
         
@@ -129,7 +124,7 @@ if __name__ == "__main__":
             
             file = [args.output_path + '/feature_matrix/' + args.dataset + '/' + args.model + '_' + args.depth + '_' + args.pooling + '_'
                         + args.dataset + '_' + str(args.input_dimm) + '_gray' + str(args.grayscale) + '_AllSamples.pkl'][0]
-            
+    
             if not os.path.isfile(file2):         
                 if os.path.isfile(file) :
                     if 'Outex' in args.dataset:
@@ -144,15 +139,18 @@ if __name__ == "__main__":
                             if 'KTH' in args.dataset:
                                 crossval = crossval(DATASETS_[args.dataset](root=path, load_all=False).splits) 
                                 
-                            elif 'DTD' in args.dataset:
+                            elif 'DTD' in args.dataset or 'MINC' in args.dataset:
                                 dataset = DATASETS_[args.dataset](root=path)
                             else:                                
                                 crossval.get_n_splits(X_, Y_)                    
                                 crossval=crossval.split(X_, Y_)                            
                           
-                        if 'DTD' in args.dataset:
+                        if 'DTD' in args.dataset or 'MINC' in args.dataset:
                             train_index = dataset.get_indexes(split="train", partition=partition+1)
-                            val_index = dataset.get_indexes(split="val", partition=partition+1)
+                            if args.dataset == 'DTD':
+                                val_index = dataset.get_indexes(split="val", partition=partition+1)
+                            else:
+                                val_index = dataset.get_indexes(split="validate", partition=partition+1)
                             train_index = train_index + val_index
                             test_index = dataset.get_indexes(split="test", partition=partition+1)
                         else:
@@ -161,7 +159,7 @@ if __name__ == "__main__":
                         X_test,Y_test = X_[test_index], Y_[test_index]
                         X_train, Y_train = X_[train_index], Y_[train_index]
                 else:            
-                    if args.dataset == 'DTD':
+                    if args.dataset == 'DTD' or args.dataset == 'MINC':
                         if partition == 0: 
                             dataset= DATASETS_[args.dataset](root=path, download=True,
                                                                 transform=_transform) 
@@ -173,7 +171,10 @@ if __name__ == "__main__":
                             #     pickle.dump([X_, Y_, dataset._image_files], f)
                                 
                         train_index = dataset.get_indexes(split="train", partition=partition+1)
-                        val_index = dataset.get_indexes(split="val", partition=partition+1)
+                        if args.dataset == 'DTD':
+                            val_index = dataset.get_indexes(split="val", partition=partition+1)
+                        else:
+                            val_index = dataset.get_indexes(split="validate", partition=partition+1)
                         train_index = train_index + val_index
                         test_index = dataset.get_indexes(split="test", partition=partition+1)
                         
@@ -295,40 +296,37 @@ if __name__ == "__main__":
                         'preds_SVM':preds_SVM,
                         'accs_SVM':accs_SVM}  
          
-if not os.path.isfile(file2): 
-    with open(file2, 'wb') as f:
-        pickle.dump(results, f)
- 
-if os.path.isfile(file2):           
-    with open(file2, 'rb') as f:
-        results = pickle.load(f) 
+    if not os.path.isfile(file2): 
+        with open(file2, 'wb') as f:
+            pickle.dump(results, f)
     
-print('Acc: ', sep=' ', end='', flush=True)   
-print('KNN:', f"{np.round(np.mean(results['accs_KNN']), 2):.2f} (+-{np.round(np.std(results['accs_KNN']), 2):.2f})", sep=' ', end='', flush=True)      
-print(' || LDA:', f"{np.round(np.mean(results['accs_LDA']), 2):.2f} (+-{np.round(np.std(results['accs_LDA']), 2):.2f})", sep=' ', end='', flush=True)      
-print(' || SVM:', f"{np.round(np.mean(results['accs_SVM']), 2):.2f} (+-{np.round(np.std(results['accs_SVM']), 2):.2f})", sep=' ', end='', flush=True)      
-print('\ntook', time.time()-start_time,'seconds', '-' * 70)
-# print('\n#### FINAL METRICS ###')  
-# print(args.model, args.dataset)      
-# print('KNN:', f"{np.round(np.mean(results['accs_KNN']), 2):.2f} (+-{np.round(np.std(results['accs_KNN']), 2):.2f})")
-# print('LDA:', f"{np.round(np.mean(results['accs_LDA']), 2):.2f} (+-{np.round(np.std(results['accs_LDA']), 2):.2f})")
-# print('SVM:', f"{np.round(np.mean(results['accs_SVM']), 2):.2f} (+-{np.round(np.std(results['accs_SVM']), 2):.2f})")
-
+    if os.path.isfile(file2):           
+        with open(file2, 'rb') as f:
+            results = pickle.load(f) 
         
-### LATEX OUTPUT
-# print(f"{np.round(np.mean(results['accs_KNN']), 2):.2f}&",
-# print(f"{np.round(np.mean(results['accs_LDA']), 2):.2f}&",
-#       f"{np.round(np.mean(results['accs_SVM']), 2):.2f}\\\\")
-
-# print(f"{np.round(np.mean(results['accs_KNN']), 2):.2f}" + r"{\tiny$\pm$" + f"{np.round(np.std(results['accs_KNN']), 2):.2f}"+ r"}&",
-# print(f"{np.round(np.mean(results['accs_LDA']), 2):.2f}" + r"{\tiny$\pm$" + f"{np.round(np.std(results['accs_LDA']), 2):.2f}"+ r"}&",
-#         f"{np.round(np.mean(results['accs_SVM']), 2):.2f}" + r"{\tiny$\pm$" + f"{np.round(np.std(results['accs_SVM']), 2):.2f}"+ r"}")            
-            
-       
-# print(f"{np.round(np.mean(results['accs_SVM']), 1):.1f}" + r"{\tiny$\pm$" + f"{np.round(np.std(results['accs_SVM']), 1):.1f}"+ r"}")            
-
-# print(f"{np.round(np.mean(results['accs_SVM']), 1):.1f}\\\\")
-
+    print('Acc: ', sep=' ', end='', flush=True)   
+    print('KNN:', f"{np.round(np.mean(results['accs_KNN']), 2):.2f} (+-{np.round(np.std(results['accs_KNN']), 2):.2f})", sep=' ', end='', flush=True)      
+    print(' || LDA:', f"{np.round(np.mean(results['accs_LDA']), 2):.2f} (+-{np.round(np.std(results['accs_LDA']), 2):.2f})", sep=' ', end='', flush=True)      
+    print(' || SVM:', f"{np.round(np.mean(results['accs_SVM']), 2):.2f} (+-{np.round(np.std(results['accs_SVM']), 2):.2f})", sep=' ', end='', flush=True)      
+    print('\ntook', time.time()-start_time,'seconds', '-' * 70)
+    # print('\n#### FINAL METRICS ###')  
+    # print(args.model, args.dataset)      
+    # print('KNN:', f"{np.round(np.mean(results['accs_KNN']), 2):.2f} (+-{np.round(np.std(results['accs_KNN']), 2):.2f})")
+    # print('LDA:', f"{np.round(np.mean(results['accs_LDA']), 2):.2f} (+-{np.round(np.std(results['accs_LDA']), 2):.2f})")
+    # print('SVM:', f"{np.round(np.mean(results['accs_SVM']), 2):.2f} (+-{np.round(np.std(results['accs_SVM']), 2):.2f})")
 
             
-            
+    ### LATEX OUTPUT
+    # print(f"{np.round(np.mean(results['accs_KNN']), 2):.2f}&",
+    # print(f"{np.round(np.mean(results['accs_LDA']), 2):.2f}&",
+    #       f"{np.round(np.mean(results['accs_SVM']), 2):.2f}\\\\")
+
+    # print(f"{np.round(np.mean(results['accs_KNN']), 2):.2f}" + r"{\tiny$\pm$" + f"{np.round(np.std(results['accs_KNN']), 2):.2f}"+ r"}&",
+    # print(f"{np.round(np.mean(results['accs_LDA']), 2):.2f}" + r"{\tiny$\pm$" + f"{np.round(np.std(results['accs_LDA']), 2):.2f}"+ r"}&",
+    #         f"{np.round(np.mean(results['accs_SVM']), 2):.2f}" + r"{\tiny$\pm$" + f"{np.round(np.std(results['accs_SVM']), 2):.2f}"+ r"}")            
+                
+        
+    # print(f"{np.round(np.mean(results['accs_SVM']), 1):.1f}" + r"{\tiny$\pm$" + f"{np.round(np.std(results['accs_SVM']), 1):.1f}"+ r"}")            
+
+    # print(f"{np.round(np.mean(results['accs_SVM']), 1):.1f}\\\\")
+

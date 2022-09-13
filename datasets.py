@@ -492,3 +492,100 @@ class DTD(Dataset):
             return
         download_and_extract_archive(self._URL, download_root=str(self._base_folder), md5=self._MD5)
         
+class MINC(Dataset):
+    
+    
+    _URL = "http://opensurfaces.cs.cornell.edu/static/minc/minc-2500.tar.gz"
+    
+    def __init__(
+        self,
+        root: str,
+        transform: Optional[Callable] = None,
+        target_transform: Optional[Callable] = None,
+        download: bool = False,
+    ) -> None:
+        
+        super().__init__(root, transform=transform, target_transform=target_transform)
+        self._base_folder = pathlib.Path(self.root)
+        self._data_folder = self._base_folder / "minc-2500"
+        self._meta_folder = self._data_folder / "labels"
+        self._images_folder = self._data_folder / "images"
+        
+        if download:
+            self._download()
+            
+        if not self._check_exists():
+            raise RuntimeError("Dataset not found. You can use download=True to download it")
+        
+        self._image_files = []
+        classes = []
+        self.names = []
+        with open(self._meta_folder / "train1.txt") as file:
+            for line in file:
+                _, cl, name = line.strip().split("/")
+                self._image_files.append(self._images_folder.joinpath(cl, name))
+                self.names.append(name)
+                classes.append(cl)
+        with open(self._meta_folder / "validate1.txt") as file:
+            for line in file:
+                _, cl, name = line.strip().split("/")
+                self._image_files.append(self._images_folder.joinpath(cl, name))
+                self.names.append(name)
+                classes.append(cl)
+        with open(self._meta_folder / "test1.txt") as file:
+            for line in file:
+                _, cl, name = line.strip().split("/")
+                self._image_files.append(self._images_folder.joinpath(cl, name))
+                self.names.append(name)
+                classes.append(cl)
+                
+        self.name_to_idx = dict(zip(self.names, range(len(self.names))))
+        self.classes = sorted(set(classes))
+        self.class_to_idx = dict(zip(self.classes, range(len(self.classes))))
+        self._labels = [self.class_to_idx[cl] for cl in classes]
+        
+    def __len__(self) -> int:
+        return len(self._image_files)
+    
+    def __getitem__(self, idx):
+        image_file, label = self._image_files[idx], self._labels[idx]
+        image = Image.open(image_file).convert("RGB")
+        
+        if self.transform:
+            image = self.transform(image)
+        
+        if self.target_transform:
+            label = self.target_transform(label)
+            
+        return image, label
+    
+    def get_indexes(self, split="train", partition=1):
+        
+        verify_str_arg(split, "split", ("train", "validate", "test"))
+        if not isinstance(partition, int) and not (1 <= partition <= 5):
+            raise ValueError(
+                f"Parameter 'partition' shoud be an integer with `1 <= partition <= 5`, "
+                f"but got {partition} instead"
+            )
+            
+        indexes = []
+        
+        with open(self._meta_folder / f"{split}{partition}.txt") as file:
+            for line in file:
+                name = line.strip().split("/")[2]
+                indexes.append(self.name_to_idx[name])
+                
+        return indexes
+    
+    def extra_repr(self) -> str:
+        return f"split={self.split}, partition={self.partition}"
+    
+    def _check_exists(self) -> bool:
+        return os.path.exists(self._data_folder) and os.path.isdir(self._data_folder)
+    
+    def _download(self) -> None:
+        if self._check_exists():
+            return
+        download_and_extract_archive(self._URL, download_root=str(self._base_folder))
+        
+        
