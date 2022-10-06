@@ -17,7 +17,7 @@ import timm
 import numpy as np
 from scipy import io
 from code_RNN import RNN
-from code_RNN import ELM
+from code_RNN import ELM, ELM_conv, RATT
 from einops.layers.torch import Rearrange
 
 
@@ -34,7 +34,10 @@ POOLINGS = {'AvgPool2d': lambda WH: nn.AdaptiveAvgPool2d((1,1)),
             'aggregationGAP' : lambda WH: aggregation_GAP(WH),
             # 'ELMspatiospectral' : lambda WH: SpatioSpectral_ELMs(WH),
             'ELMspatialEV': lambda WH: ELM_AE_Spatial_EVOLVED(WH),
-            'ELMfatspectralEnsemble' : lambda WH : ELM_AE_FatSpectral_Ensemble(WH)
+            'ELMfatspectralEnsemble' : lambda WH : ELM_AE_FatSpectral_Ensemble(WH),
+            'ELMaggregativeEnsemble': lambda WH: ELMaggregative(WH),
+            'ELMaggregativeEnsembleM20': lambda WH: ELMaggregative(20)
+            # 'Spectral_Conv' : lambda WH : Spectral_Conv(1)
             }
 
 
@@ -258,7 +261,101 @@ class ELM_AE_Spectral_Pool2d(Module):
             out.append(pooled_features)
       
         return torch.stack(out)
-   
+
+class ELMaggregative(Module):
+    def __init__(self, Q):
+        super(ELMaggregative, self).__init__()         
+        self.Q = 1
+        self.M = Q
+        
+    def forward(self, x): 
+        SPATIAL_ = x[int(np.round(len(x)/2))].size()[2]
+        batch, z, _, _ = x[0].size() #zero is the first activation map
+        _, zn, _, _ = x[-1].size() #-1 is the last activation map
+        Q=self.Q
+        #ensemble size. M randomized AEs with different seed are summed after training
+        M = self.M
+        device = x[0].get_device()
+        out = []
+        P = sum([a.size()[1] for a in x])
+        # pos_encoding = ELM.positionalencoding2d(int(P), SPATIAL_, SPATIAL_)
+        # pos_encoding = ELM.torch.reshape(pos_encoding, (P, SPATIAL_**2)).to(x[0].get_device())
+        
+        ELMs = []
+        for model in range(M):
+            ELMs.append(ELM.ELM_AE(Q=Q, P=P, N=SPATIAL_**2, device=x[0].get_device(), seed=model*(Q*P)))
+        # spectral_ELM2 = ELM.ELM_AE(Q=Q, P=P, N=SPATIAL_**2, device=x[0].get_device(), seed=9999)
+        
+        func = Rearrange('b c h w -> b c (h w)')        
+        meta_feature_maps = torch.empty((batch, 0, SPATIAL_**2)).to(device)
+             
+        ######## layer-wise normalization of each sampe in the batch
+        for depth in x:
+            for sample in depth:
+                torch.nn.functional.normalize(sample, p=2.0, dim=(1,2), eps=1e-10, out=sample)
+                
+        #stack activation maps for all samples
+        for ii in range(len(x)):            
+            meta_feature_maps = torch.cat((meta_feature_maps, 
+                                          func(torchvision.transforms.Resize(SPATIAL_)(x[ii]))), axis=1)
+            x[ii]=[]
+        x=[]        
+        for sample in meta_feature_maps:
+            # sample = torch_zscore(sample, axis=0)
+            # sample= torch.nan_to_num(sample)
+            ## sample = torch.add(sample, pos_encoding)
+            
+            x_train = sample                   
+            # spectral_features = spectral_ELM.fit_agg(x_train, target)
+            spectral_features = torch.zeros(Q,P).to(device)
+            for elm in ELMs:
+                current_model=elm.fit_AE(x_train)
+                spectral_features = spectral_features + current_model
+
+            if Q==1:
+                pooled_features=torch.reshape(spectral_features, (1, spectral_features.size()[0]*spectral_features.size()[1]))
+            else:
+                pooled_features = torch.sum(spectral_features, axis=0)
+              
+            pooled_features= torch.nan_to_num(pooled_features)
+            out.append(pooled_features)
+            sample=[]
+
+        return torch.stack(out)
+
+# class Spectral_Conv(Module):
+#     def __init__(self, Q):
+#         super(Spectral_Conv, self).__init__()         
+#         self.Q = 16
+
+#     def forward(self, x):
+#         batch, z, w, h = x.size()
+#         Q=self.Q
+#         P,N = z, w*h
+#         device=x.get_device()
+#         out = []        
+#         spectral_ELM = RATT.randomized_attention(Q=Q, P=P, N=N, device=device)
+#         func = Rearrange('b c h w -> b c (h w)')  
+#         x = func(x)
+#         for sample in x:
+#             for channel in sample:
+#             # sample = torch_zscore(sample, axis=0)
+#             # sample = torch.nan_to_num(sample)
+#             # sample = torch.reshape(sample, (z, w, h))
+#             # spectral_features = spectral_ELM.self_att(sample)    
+#             pooled_features = [calc_entropy(i) for i in sample]
+#             # if self.Q==1:
+#             #     #flatten
+#             #     pooled_features=torch.reshape(spectral_features, (1, spectral_features.size()[0]*spectral_features.size()[1]))
+#             #     # pooled_features=spectral_features
+#             # else:
+#             #     pooled_features = torch.std(spectral_features, axis=0)
+                
+#             out.append(torch.stack(pooled_features))
+      
+#         return torch.stack(out)
+    
+
 class ELM_AE_FatSpectral_Pool2d(Module):
     def __init__(self, Q):
         super(ELM_AE_FatSpectral_Pool2d, self).__init__()         

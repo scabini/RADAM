@@ -18,7 +18,7 @@ import models
 #   random weights are used for feature extraction. Otherwise, tries to
 #   download pretrained weights
 #   the random seed is only for using random models
-def extract_features(method, dataset, pooling, seed, depth='last', multigpu=False, batch_size=1):
+def extract_features(method, dataset, pooling, seed, depth='last', multigpu=False, batch_size=1, Q=1):
     
     torch.manual_seed(seed)
     random.seed(seed)
@@ -52,7 +52,7 @@ def extract_features(method, dataset, pooling, seed, depth='last', multigpu=Fals
    
     feature_size = model.get_features(next(iter(data_loader))[0].to(device), depth, pooling).cpu().detach().numpy().shape[1]
     # model()     
-    print('extracting', feature_size, 'features...')
+    # print('extracting', feature_size, 'features...')
     X = np.empty((0,feature_size))
     Y = np.empty((0))
     
@@ -64,7 +64,7 @@ def extract_features(method, dataset, pooling, seed, depth='last', multigpu=Fals
       
         inputs, labels = data[0].to(device), data[1]   
               
-        X = np.vstack((X,model.get_features(inputs, depth, pooling).cpu().detach().numpy()))
+        X = np.vstack((X,model.get_features(inputs, depth, pooling, Q=Q).cpu().detach().numpy()))
 
         Y = np.hstack((Y, labels))
 

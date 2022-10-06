@@ -1,30 +1,30 @@
 import math
 import torch
-# from weight_rewiring import PA_rewiring_torch
+from weight_rewiring import PA_rewiring_torch
 import pickle
 ###############
 # ELM
 ###############
 
 class ELM_AE():
-    def __init__(self, Q, P, N, device):
+    def __init__(self, Q, P, N, device, seed):
         self._input_size = P
         self._h_size = Q
         self._device = device
-        self._lambda = 0.001
+        # self._lambda = 0.001
         
         # self._alpha = torch.ones(self._h_size, self._input_size).to(device)
-        self._alpha = my_orth(LCG(self._h_size, self._input_size)).to(device)
-        # self._alpha = PA_rewiring_torch(my_orth(LCG(self._h_size, self._input_size)),stochastic=False).to(device)
-        self._bias = my_orth(LCG(self._h_size, 1))
+        self._alpha = my_orth(LCG(self._h_size, self._input_size, seed)).to(device)
+        # self._alpha = PA_rewiring_torch(my_orth(LCG(self._h_size, self._input_size, seed)),stochastic=False,seed=seed).to(device)
+        # self._bias = LCG(self._h_size, 1)
         # self._bias = torch.ones((self._h_size, 1))
         
         window_size = math.sqrt(N)
         self.pos_encoding = positionalencoding2d(int(P), int(window_size), int(window_size))
         self.pos_encoding = torch.reshape(self.pos_encoding, (P, N)).to(device)
     
-        self.bias = torch.tile(self._bias, (1,N)).to(device)
-        self._eye = torch.eye(self._h_size, dtype=torch.float).to(device)
+        # self.bias = torch.tile(self._bias, (1,N)).to(device)
+        # self._eye = torch.eye(self._h_size, dtype=torch.float).to(device)
  
         self._activation = torch.sigmoid
         
@@ -33,30 +33,50 @@ class ELM_AE():
     #     out = h.mm(self._beta)
         
         # return out
+    # def project(self, x):       
+    #     x = torch.add(x, self.pos_encoding) #simpler case, adds pos encoding
+    #     temp = torch.mm(self._alpha, x)
+    #     # temp = torch.mm(self._alpha, torch.cat((x, self.pos_encoding))) # new case, concatenate the encoding
+
+    #     return self._activation(torch.add(temp, self.bias))
+    
     
     def fit_AE(self, x):       
         x = torch.add(x, self.pos_encoding) #simpler case, adds pos encoding
         temp = torch.mm(self._alpha, x)
+        # temp = torch.add(temp, self.pos_encoding)
         # temp = torch.mm(self._alpha, torch.cat((x, self.pos_encoding))) # new case, concatenate the encoding
 
-        H = self._activation(torch.add(temp, self.bias))
+        # H = self._activation(torch.add(temp, self.bias))
+        H = self._activation(temp)
+        # self._beta = torch.mm(torch.mm(x, H.t()), torch.linalg.inv(torch.mm(H, H.t()) + self._lambda * self._eye))
+        
+        # self._beta = torch.mm(x, torch.pinverse(H))
+        self._beta = torch.linalg.lstsq(H.t(), x.t()).solution
+        return self._beta
+    
+    # def fit_REG(self, x, target_):       
+    #     x = torch.add(x, self.pos_encoding) #simpler case, adds pos encoding
+    #     target = torch.reshape(x[target_,:], (1, x.size()[1]))
+    #     x = torch.cat((x[:target_],x[target_+1:]))        
+    #     temp = torch.mm(self._alpha[:,:-1], x)
+    #     H = self._activation(torch.add(temp, self.bias))        
+        
+    #     self._beta = torch.mm(target, torch.pinverse(H))
+    #     return self._beta
+    
+    def fit_agg(self, x, target_):       
+        # x = torch.add(x, self.pos_encoding) #simpler case, adds pos encoding
+        temp = torch.mm(self._alpha, x)
+        # temp = torch.mm(self._alpha, torch.cat((x, self.pos_encoding))) # new case, concatenate the encoding
+
+        # H = self._activation(torch.add(temp, self.bias))
+        H = self._activation(temp)
         
         # self._beta = torch.mm(torch.mm(x, H.t()), torch.linalg.inv(torch.mm(H, H.t()) + self._lambda * self._eye))
         
-        self._beta = torch.mm(x, torch.pinverse(H))
-        return self._beta
-    
-    def fit_REG(self, x, target_):       
-        x = torch.add(x, self.pos_encoding) #simpler case, adds pos encoding
-        
-        target = torch.reshape(x[target_,:], (1, x.size()[1]))
-        x = torch.cat((x[:target_],x[target_+1:]))
-        
-        temp = torch.mm(self._alpha[:,:-1], x)
-
-        H = self._activation(torch.add(temp, self.bias))        
-        
-        self._beta = torch.mm(target, torch.pinverse(H))
+        # self._beta = torch.mm(target_, torch.pinverse(H))
+        self._beta = torch.linalg.lstsq(H.t(), target_.t()).solution
         return self._beta
     
     # def evaluate(self, x, t):
@@ -67,38 +87,39 @@ class ELM_AE():
     def get_output_weights(self):
         return self._beta
         
-def LCG(m, n):
+def LCG(m, n, seed):
     L = m*n
     
-    # if L == 1:
-    #     return torch.ones((1,1), dtype=torch.float)
+    if L == 1:
+        return torch.ones((1,1), dtype=torch.float)
     # else:                    
     #     V = torch.zeros(L, dtype=torch.float)
         
     #     #### Initial approach, according to Jarbas
-    #     if L == 4:
-    #         V[0] = L+2.0
-    #     else:
-    #         V[0] = L+1.0        
-    #     a = L+2.0
-    #     b = L+3.0        
-    #     c = L**2.0
+    #     # if L == 4:
+    #     #     V[0] = L+2.0
+    #     # else:
+    #     #     V[0] = L+1.0        
+    #     # a = L+2.0
+    #     # b = L+3.0        
+    #     # c = L**2.0
         
-        #### Better approach
-        # V[0] = 1
-        # a = 75
-        # b = 74   
-        # c = (2**16)+1
+    #     ### Better approach
+    #     V[0] = 0
+    #     a = 75
+    #     b = 74   
+    #     c = (2**16)+1
         
-        # for x in range(1, (m*n)):
-        #     V[x] = (a*V[x-1]+b) % c
+    #     for x in range(1, (m*n)):
+    #         V[x] = (a*V[x-1]+b) % c
 
-    with open('code_RNN/weights.pkl', 'rb') as f:
-        V = pickle.load(f)
-        f.close()      
-    V = V[0:L]
-    
-    V = torch.divide(torch.subtract(V, torch.mean(V)), torch.std(V))
+    else:
+        with open('code_RNN/weights.pkl', 'rb') as f:
+            V = pickle.load(f)
+            f.close()      
+        V = V[seed:L+seed]
+        
+        V = torch.divide(torch.subtract(V, torch.mean(V)), torch.std(V))
  
     return V.reshape((m,n))
     

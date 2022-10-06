@@ -34,7 +34,7 @@ os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 os.environ["CUBLAS_WORKSPACE_CONFIG"]=":4096:8"
 import multiprocessing
 total_cores=multiprocessing.cpu_count()
-os.environ["OMP_NUM_THREADS"]=str(total_cores*2)
+os.environ["OMP_NUM_THREADS"]='16'
 args = parse_args()
 # if not args.multigpu:
 os.environ["CUDA_VISIBLE_DEVICES"]=args.gpu
@@ -242,7 +242,7 @@ if __name__ == "__main__":
                 if partition == 0: 
                     print(time.time()-start_time, 's so far, now classifying...', (X_train.shape, X_test.shape))
                 gtruth_.append(Y_test)
-                with parallel_backend('threading', n_jobs=total_cores*2):
+                with parallel_backend('threading', n_jobs=16):
                     # np.seterr(all='ignore')
                     # data_norm = PowerTransformer(standardize=False)
                     # data_norm.fit(X_train)
@@ -307,7 +307,7 @@ if __name__ == "__main__":
                     # accs_LDA.append(acc*100)
                         
             
-                    SVM = svm.SVC(C=1.0, kernel='rbf', degree=3, gamma='scale', 
+                    SVM = svm.SVC(C=1.0, kernel='linear', degree=3, gamma='scale', 
                                   coef0=0.0, shrinking=True, probability=False, tol=0.001,
                                   cache_size=200, class_weight=None, verbose=False, 
                                   max_iter=-1, decision_function_shape='ovr', 
@@ -342,9 +342,9 @@ if __name__ == "__main__":
             results = pickle.load(f) 
         
     print('Acc: ', sep=' ', end='', flush=True)   
-    print('KNN:', f"{np.round(np.mean(results['accs_KNN']), 2):.2f} (+-{np.round(np.std(results['accs_KNN']), 2):.2f})", sep=' ', end='', flush=True)      
-    print(' || LDA:', f"{np.round(np.mean(results['accs_LDA']), 2):.2f} (+-{np.round(np.std(results['accs_LDA']), 2):.2f})", sep=' ', end='', flush=True)      
-    print(' || SVM:', f"{np.round(np.mean(results['accs_SVM']), 2):.2f} (+-{np.round(np.std(results['accs_SVM']), 2):.2f})", sep=' ', end='', flush=True)      
+    print('KNN:', f"{np.round(np.mean(results['accs_KNN']), 1):.1f} (+-{np.round(np.std(results['accs_KNN']), 1):.1f})", sep=' ', end='', flush=True)      
+    print(' || LDA:', f"{np.round(np.mean(results['accs_LDA']), 1):.1f} (+-{np.round(np.std(results['accs_LDA']), 1):.1f})", sep=' ', end='', flush=True)      
+    print(' || SVM:', f"{np.round(np.mean(results['accs_SVM']), 1):.1f} (+-{np.round(np.std(results['accs_SVM']), 1):.1f})", sep=' ', end='', flush=True)      
     print('\ntook', time.time()-start_time,'seconds', '-' * 70)
     # print('\n#### FINAL METRICS ###')  
     # print(args.model, args.dataset)      
