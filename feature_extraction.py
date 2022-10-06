@@ -18,7 +18,7 @@ import models
 #   random weights are used for feature extraction. Otherwise, tries to
 #   download pretrained weights
 #   the random seed is only for using random models
-def extract_features(method, dataset, pooling, seed, input_dimm=224, depth='last', multigpu=False, batch_size=1):
+def extract_features(method, dataset, pooling, seed, depth='last', multigpu=False, batch_size=1, Q=1):
     
     torch.manual_seed(seed)
     random.seed(seed)
@@ -38,7 +38,7 @@ def extract_features(method, dataset, pooling, seed, input_dimm=224, depth='last
         model = models.timm_attention_features(method)         
     elif '-random' in method: #random features?
         model = models.timm_random_features(method.split('-')[0]) 
-    elif 'aggregationGAP' in pooling:
+    elif 'aggregationGAP' in pooling:# or 'ELMfatspectral' in pooling:
         model = models.timm_isotropic_features(method.split('-')[0], output_stride=-1)
     elif '-aggregation' in method:
         model = models.timm_isotropic_features(method.split('-')[0])
@@ -50,9 +50,9 @@ def extract_features(method, dataset, pooling, seed, input_dimm=224, depth='last
     data_loader = torch.utils.data.DataLoader(dataset,
                           batch_size=batch_size, shuffle = False, drop_last=False, pin_memory=True, num_workers=num_workers)  
    
-    feature_size = model.get_features(torch.ones((1,3, input_dimm,input_dimm)).to(device), depth, pooling).cpu().detach().numpy().shape[1]
+    feature_size = model.get_features(next(iter(data_loader))[0].to(device), depth, pooling).cpu().detach().numpy().shape[1]
     # model()     
-    print('extracting', feature_size, 'features...')
+    # print('extracting', feature_size, 'features...')
     X = np.empty((0,feature_size))
     Y = np.empty((0))
     
@@ -64,11 +64,13 @@ def extract_features(method, dataset, pooling, seed, input_dimm=224, depth='last
       
         inputs, labels = data[0].to(device), data[1]   
               
-        X = np.vstack((X,model.get_features(inputs, depth, pooling).cpu().detach().numpy()))
+        X = np.vstack((X,model.get_features(inputs, depth, pooling, Q=Q).cpu().detach().numpy()))
 
         Y = np.hstack((Y, labels))
 
+    del model.net
     del model
+    del data_loader
     return X,Y
     
         

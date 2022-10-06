@@ -78,6 +78,12 @@ def LCG(m,n):
         a = L+2.0; #a
         b = L+3.0; #b
         c = L*L; #m
+        
+        # V[0] = 1
+        # a = 48271
+        # b = 1   
+        # c = (2**31)-1
+        
         for x in range(1,(m*n)):
             V[x] = (a*V[x-1]+b) % c
   

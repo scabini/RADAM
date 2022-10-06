@@ -17,7 +17,7 @@ def parse_args():
     parser.add_argument('--grayscale',  action='store_true', default=False, help='Converts images to grayscale')
     parser.add_argument('--K', type=int, default=10, help='Number of splits for K-fold stratified cross validation')
 
-    parser.add_argument('--input_dimm', type=int, default=224, help='Image input size (single value, square). The standard is a forced resize to 224 (square)')
+    parser.add_argument('--input_dimm', type=str, default='224', help='Image input size (single value, square). The standard is a forced resize to 224 (square)')
     parser.add_argument('--batch_size', type=int, default=128, help='Batch size, increase for better speed, if you have enough VRAM')
 
     #hyperparameters
@@ -34,7 +34,7 @@ os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 os.environ["CUBLAS_WORKSPACE_CONFIG"]=":4096:8"
 import multiprocessing
 total_cores=multiprocessing.cpu_count()
-os.environ["OMP_NUM_THREADS"]=str(total_cores*2)
+os.environ["OMP_NUM_THREADS"]='16'
 args = parse_args()
 # if not args.multigpu:
 os.environ["CUDA_VISIBLE_DEVICES"]=args.gpu
@@ -43,9 +43,11 @@ import torchvision
 from feature_extraction import extract_features
 import sklearn
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from classifiers import torch_LDA
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn import svm, model_selection
 from sklearn.model_selection import RandomizedSearchCV 
+from sklearn.preprocessing import StandardScaler,PowerTransformer
 import datasets
 import pickle
 import time
@@ -77,7 +79,7 @@ if __name__ == "__main__":
     print(args.model,  args.depth,  args.pooling, args.dataset, args.input_dimm)
     # print('Evaluating fold (...)= ', sep=' ', end='', flush=True)    
     file2 = [args.output_path +  '/classification/' + args.dataset + '/' + args.model + '_' + args.depth + '_' + args.pooling + '_'
-                + args.dataset + '_' + str(args.input_dimm) +  '_gray' + str(args.grayscale) + '_K' + str(args.K) +'_EVALUATION.pkl'][0]
+                + args.dataset + '_' + args.input_dimm +  '_gray' + str(args.grayscale) + '_K' + str(args.K) +'_EVALUATION.pkl'][0]
 
     base_seed = args.seed
     
@@ -85,12 +87,21 @@ if __name__ == "__main__":
     averages =  (0.485, 0.456, 0.406)
     variances = (0.229, 0.224, 0.225)  
     #Data loader
-    _transform = torchvision.transforms.Compose([
-        torchvision.transforms.ToTensor(),
-        torchvision.transforms.Normalize(averages, variances),
-        torchvision.transforms.Resize((args.input_dimm ,args.input_dimm ))
-        # transforms.CenterCrop(128)
-    ])        
+    if args.input_dimm == 'original':
+        _transform = torchvision.transforms.Compose([
+            torchvision.transforms.ToTensor(),
+            torchvision.transforms.Normalize(averages, variances),
+            # torchvision.transforms.Resize((args.input_dimm ,args.input_dimm ))
+            # torchvision.transforms.CenterCrop(args.input_dimm)
+        ])   
+    else:
+        args.input_dimm = int(args.input_dimm)
+        _transform = torchvision.transforms.Compose([
+            torchvision.transforms.ToTensor(),
+            torchvision.transforms.Normalize(averages, variances),
+            torchvision.transforms.Resize((args.input_dimm ,args.input_dimm ))
+            # torchvision.transforms.CenterCrop(args.input_dimm)
+        ])        
     
     for it_ in range(args.iterations):
         seed = base_seed*(it_+1)
@@ -164,7 +175,7 @@ if __name__ == "__main__":
                             dataset= DATASETS_[args.dataset](root=path, download=True,
                                                                 transform=_transform) 
                             
-                            X_, Y_ = extract_features(args.model, dataset, input_dimm=args.input_dimm, depth=args.depth, pooling=args.pooling,
+                            X_, Y_ = extract_features(args.model, dataset, depth=args.depth, pooling=args.pooling,
                                                       batch_size=args.batch_size, multigpu=args.multigpu, seed=seed)       
                                         
                             # with open(file, 'wb') as f:
@@ -187,14 +198,14 @@ if __name__ == "__main__":
                                                     suite=args.dataset.split('Outex')[1],                                                      
                                                     transform=_transform) 
                         
-                        X_train,Y_train = extract_features(args.model, train_dataset, input_dimm=args.input_dimm, depth=args.depth, pooling=args.pooling,
+                        X_train,Y_train = extract_features(args.model, train_dataset, depth=args.depth, pooling=args.pooling,
                                                            batch_size=args.batch_size, multigpu=args.multigpu, seed=seed)        
                         
                         test_dataset= DATASETS_['Outex'](root=outex_path, split='test',
                                                     suite=args.dataset.split('Outex')[1],
                                                     transform=_transform)
                         
-                        X_test,Y_test = extract_features(args.model, test_dataset, input_dimm=args.input_dimm, depth=args.depth, pooling=args.pooling,
+                        X_test,Y_test = extract_features(args.model, test_dataset, depth=args.depth, pooling=args.pooling,
                                                          batch_size=args.batch_size, multigpu=args.multigpu, seed=seed)
                         # with open(file, 'wb') as f:
                         #     pickle.dump([X_train, Y_train, X_test, Y_test, train_dataset._image_files, test_dataset._image_files], f)
@@ -204,7 +215,7 @@ if __name__ == "__main__":
                             dataset= DATASETS_[args.dataset](root=path,
                                                              transform= _transform, grayscale=args.grayscale)
                             
-                            X_,Y_ = extract_features(args.model, dataset, input_dimm=args.input_dimm, depth=args.depth, pooling=args.pooling,
+                            X_,Y_ = extract_features(args.model, dataset, depth=args.depth, pooling=args.pooling,
                                                      batch_size=args.batch_size, multigpu=args.multigpu, seed=seed) 
                             
                             # with open(file, 'wb') as f:
@@ -231,8 +242,17 @@ if __name__ == "__main__":
                 if partition == 0: 
                     print(time.time()-start_time, 's so far, now classifying...', (X_train.shape, X_test.shape))
                 gtruth_.append(Y_test)
-                with parallel_backend('threading', n_jobs=total_cores*2):
-                                       
+                with parallel_backend('threading', n_jobs=16):
+                    # np.seterr(all='ignore')
+                    # data_norm = PowerTransformer(standardize=False)
+                    # data_norm.fit(X_train)
+                    # X_train= np.nan_to_num(data_norm.transform(X_train))
+                    # X_test = np.nan_to_num(data_norm.transform(X_test))                    
+                    # data_norm = StandardScaler()
+                    # data_norm.fit(X_train)
+                    # X_train= np.nan_to_num(data_norm.transform(X_train))
+                    # X_test = np.nan_to_num(data_norm.transform(X_test)) 
+                    
                     KNN = KNeighborsClassifier(n_neighbors=1, weights='uniform', algorithm='auto', 
                                                 leaf_size=30, p=2, metric='minkowski', metric_params=None)
                     
@@ -248,15 +268,16 @@ if __name__ == "__main__":
                     acc= sklearn.metrics.accuracy_score(Y_test, preds)        
                     accs_KNN.append(acc*100)     
                     
+                    
                     LDA= LinearDiscriminantAnalysis(solver='lsqr', 
                                                     shrinkage='auto', priors=None,
                                                     n_components=None, 
                                                     store_covariance=False, 
-                                                    tol=0.0001, covariance_estimator=None)        
+                                                    tol=0.0001, covariance_estimator=None)                     
                     
                     # param_space = dict(solver=[], )                                
-                                 # tol=[1e-4, 1e-5],
-                                 # shrinkage=[None, 'auto', 0.1, 0.5, 1.0])    
+                                  # tol=[1e-4, 1e-5],
+                                  # shrinkage=[None, 'auto', 0.1, 0.5, 1.0])    
                                  
                     # param_space = [{'solver': ['lsqr'], 'shrinkage': [None, 'auto']},
                     #                 {'solver': ['svd'], 'shrinkage': [None]}]
@@ -268,9 +289,25 @@ if __name__ == "__main__":
                     preds_LDA.append(preds)            
                     acc= sklearn.metrics.accuracy_score(Y_test, preds)
                     accs_LDA.append(acc*100)  
+                    
+                    ### GPU LDA
+                    # device = "cuda" if torch.cuda.is_available() else "cpu"
+                    # n_classes=len(np.unique(Y_train))
+                    # LDA = torch_LDA.LDA(n_classes=n_classes, lamb=0.001)
+                    # _, evals = LDA(torch.from_numpy(X_train).to(device), torch.from_numpy(Y_train).to(device))
+                    
+                    # # calculate lda loss
+                    # loss = torch_LDA.lda_loss(evals, n_classes, n_eig=2, margin=0.01)
+                    # loss.backward()
+
+                    # # use LDA as classifier
+                    # preds = LDA.predict(torch.from_numpy(X_test).to(device))
+                    # preds_LDA.append(preds)            
+                    # acc= sklearn.metrics.accuracy_score(Y_test, preds.cpu().detach().numpy())
+                    # accs_LDA.append(acc*100)
                         
             
-                    SVM = svm.SVC(C=1.0, kernel='rbf', degree=3, gamma='scale', 
+                    SVM = svm.SVC(C=1.0, kernel='linear', degree=3, gamma='scale', 
                                   coef0=0.0, shrinking=True, probability=False, tol=0.001,
                                   cache_size=200, class_weight=None, verbose=False, 
                                   max_iter=-1, decision_function_shape='ovr', 
@@ -305,9 +342,9 @@ if __name__ == "__main__":
             results = pickle.load(f) 
         
     print('Acc: ', sep=' ', end='', flush=True)   
-    print('KNN:', f"{np.round(np.mean(results['accs_KNN']), 2):.2f} (+-{np.round(np.std(results['accs_KNN']), 2):.2f})", sep=' ', end='', flush=True)      
-    print(' || LDA:', f"{np.round(np.mean(results['accs_LDA']), 2):.2f} (+-{np.round(np.std(results['accs_LDA']), 2):.2f})", sep=' ', end='', flush=True)      
-    print(' || SVM:', f"{np.round(np.mean(results['accs_SVM']), 2):.2f} (+-{np.round(np.std(results['accs_SVM']), 2):.2f})", sep=' ', end='', flush=True)      
+    print('KNN:', f"{np.round(np.mean(results['accs_KNN']), 1):.1f} (+-{np.round(np.std(results['accs_KNN']), 1):.1f})", sep=' ', end='', flush=True)      
+    print(' || LDA:', f"{np.round(np.mean(results['accs_LDA']), 1):.1f} (+-{np.round(np.std(results['accs_LDA']), 1):.1f})", sep=' ', end='', flush=True)      
+    print(' || SVM:', f"{np.round(np.mean(results['accs_SVM']), 1):.1f} (+-{np.round(np.std(results['accs_SVM']), 1):.1f})", sep=' ', end='', flush=True)      
     print('\ntook', time.time()-start_time,'seconds', '-' * 70)
     # print('\n#### FINAL METRICS ###')  
     # print(args.model, args.dataset)      
