@@ -1,5 +1,4 @@
 #%%
-from copy import copy
 import timm 
 import torch
 from torch import _nnpack_available
@@ -7,7 +6,7 @@ from torch.nn import Module
 import torch.nn.functional as F
 from sklearn.metrics import accuracy_score
 from torchvision.models.feature_extraction import get_graph_node_names, create_feature_extractor
-from models import timm_pretrained_features
+from models import *
 
 LAYERS_NO_ACT = {
     'quarter': {
@@ -66,9 +65,23 @@ class extractor_pretrained_features(Module):
     def forward(self, x):
         return self.feature_extractor(x)
     
+    def get_features(self, x, depth='last', pooling='AvgPool2d', Q=1):
+        self.net.eval()
+        fmap = self.feature_extractor(x)
+        fmap = fmap[depth]
+        
+        if 'ELM' in pooling:
+            return torch.flatten(POOLINGS[pooling](Q)(fmap),
+                                 start_dim=1, end_dim=-1)
+            
+        else:
+            return torch.flatten(POOLINGS[pooling](fmap.size()[2])(fmap),
+                                 start_dim=1, end_dim=-1)
+        
+    
 class extractor_random_features(extractor_pretrained_features):
     def __init__(self, model, features_depth=['last']):
-        super(extractor_random_features, self).__init__(model, features_depth=['last'])
+        super(extractor_random_features, self).__init__(model, features_depth=features_depth)
         self.net = timm.create_model(model, pretrained=False, exportable=True)
         for param in self.net.parameters():
             param.requires_grad = False
@@ -83,9 +96,12 @@ class extractor_random_features(extractor_pretrained_features):
 # x = torch.randn((128,3,224,224))
 # x2 = torch.tensor(x)
 
-# output_extractor = model_extractor(x)
-# output = model(x)
+# output = model.get_features(x, pooling="ELMaggregativeEnsembleM20")
+# output_extractor = model_extractor.get_features(x, pooling="ELMaggregativeEnsembleM20")
+
 
 # print("output",output[-1])
 # print("output_extractor",output_extractor)
+
+
 # %%

@@ -13,6 +13,7 @@ import random
 import torch
 import torch.nn as nn
 import models
+import extractor_models
 
 ###method is a string, the model name like in timm. If you put '-random' in it,
 #   random weights are used for feature extraction. Otherwise, tries to
@@ -44,6 +45,54 @@ def extract_features(method, dataset, pooling, seed, depth='last', multigpu=Fals
         model = models.timm_isotropic_features(method.split('-')[0])
     else: #else: try to download/create the pretrained version
         model = models.timm_pretrained_features(method)    
+      
+    model.net.to(device)
+    
+    data_loader = torch.utils.data.DataLoader(dataset,
+                          batch_size=batch_size, shuffle = False, drop_last=False, pin_memory=True, num_workers=num_workers)  
+   
+    feature_size = model.get_features(next(iter(data_loader))[0].to(device), depth, pooling).cpu().detach().numpy().shape[1]
+    # model()     
+    # print('extracting', feature_size, 'features...')
+    X = np.empty((0,feature_size))
+    Y = np.empty((0))
+    
+    
+    if multigpu:
+        model.net = nn.DataParallel(model.net)
+        
+    for i, data in enumerate(data_loader, 0):
+      
+        inputs, labels = data[0].to(device), data[1]   
+              
+        X = np.vstack((X,model.get_features(inputs, depth, pooling, Q=Q).cpu().detach().numpy()))
+
+        Y = np.hstack((Y, labels))
+
+    del model.net
+    del model
+    del data_loader
+    return X,Y
+
+def extract_features_custom_nodes(method, dataset, pooling, seed, depth='last', multigpu=False, batch_size=1, Q=1):
+    
+    torch.manual_seed(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.backends.cudnn.benchmark = False
+    torch.use_deterministic_algorithms(True)
+        
+    # gpus = torch.cuda.device_count()
+    total_cores=multiprocessing.cpu_count()
+    num_workers = total_cores
+
+    # print("System has", gpus, "GPUs and", total_cores, "CPU cores. Using", num_workers, "cores for data loaders.")
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+           
+    if '-random' in method: #random features?
+        model = extractor_models.timm_random_features(method.split('-')[0]) 
+    else: #else: try to download/create the pretrained version
+        model = extractor_models.timm_pretrained_features(method)    
       
     model.net.to(device)
     
