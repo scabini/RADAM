@@ -90,9 +90,11 @@ def extract_features_custom_nodes(method, dataset, pooling, seed, depth='last', 
     device = "cuda" if torch.cuda.is_available() else "cpu"
            
     if '-random' in method: #random features?
-        model = extractor_models.timm_random_features(method.split('-')[0]) 
+        model = extractor_models.extractor_random_features(method.split('-')[0]) 
+    elif '-aggregation' in method:
+        model = extractor_models.extractor_isotropic_features(method.split('-')[0])
     else: #else: try to download/create the pretrained version
-        model = extractor_models.timm_pretrained_features(method)    
+        model = extractor_models.extractor_pretrained_features(method)    
       
     model.net.to(device)
     

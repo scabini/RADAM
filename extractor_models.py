@@ -87,6 +87,42 @@ class extractor_random_features(extractor_pretrained_features):
             param.requires_grad = False
             
         self.net.eval()
+        
+class extractor_isotropic_features(Module):
+    def __init__(self, model, features_depth=['last'], output_stride=8):
+        super(extractor_isotropic_features, self).__init__()
+        if output_stride == -1:
+            self.net = timm.create_model(model, pretrained=True, exportable=True)
+        else:
+            try:
+                self.net = timm.create_model(model, pretrained=True, exportable=True, output_stride = 8)
+            except:
+                try:
+                    self.net = timm.create_model(model, pretrained=True, exportable=True, output_stride=32)
+                except:
+                    self.net = timm.create_model(model, pretrained=True, exportable=True)
+        for param in self.net.parameters():
+            param.requires_grad = False
+            
+        self.net.eval()
+        self.layers = get_feature_dict(model, features_depth)
+        self.feature_extractor = create_feature_extractor(self.net, return_nodes=self.layers)
+        
+    def forward(self, x):
+        return self.net(x)
+    
+    def get_features(self, x, depth='last', pooling='AvgPool2d', Q=1): 
+        self.net.eval() #this is needed to disable batch norm, dropout, etc
+        fmap = self.feature_extractor(x)
+        fmaplist = [v for _,v in fmap.items()]
+        
+        if 'ELM' in pooling: #only works with ELMfatspectral (aggregative)
+            return torch.flatten(POOLINGS[pooling](Q)(fmaplist),
+                             start_dim=1, end_dim=-1)
+        else: #only works with aggregation GAP
+            return torch.flatten(POOLINGS[pooling]()(fmaplist),
+                                  start_dim=1, end_dim=-1)
+
     
     
 #%%
