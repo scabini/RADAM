@@ -292,24 +292,29 @@ class ELMaggregative(Module):
         ######## layer-wise normalization of each sampe in the batch
         for depth in x:
             for sample in depth:
-                torch.nn.functional.normalize(sample, p=2.0, dim=(1,2), eps=1e-10, out=sample)
+                ###euclidean norm over all axis of each layers output/activation map
+                #spectral norm (dim=0) seems the best option
+                torch.nn.functional.normalize(sample, p=2.0, dim=0, eps=1e-10, out=sample)
                 
-        #stack activation maps for all samples
+                ###zscore over all axis of each layers output/activation map
+                # torch.divide(torch.subtract(sample, torch.mean(sample, dim=(0,1,2))), torch.std(sample, dim=(0,1,2)), out=sample)
+                
+        #stack activation maps accross z, for all layers used for feature extraction
         for ii in range(len(x)):            
             meta_feature_maps = torch.cat((meta_feature_maps, 
                                           func(torchvision.transforms.Resize(SPATIAL_)(x[ii]))), axis=1)
             x[ii]=[]
         x=[]        
         for sample in meta_feature_maps:
+            # torch.nn.functional.normalize(sample, p=2.0, dim=0, eps=1e-10, out=sample)            
             # sample = torch_zscore(sample, axis=0)
             # sample= torch.nan_to_num(sample)
-            ## sample = torch.add(sample, pos_encoding)
             
-            x_train = sample                   
+            # x_train = sample                   
             # spectral_features = spectral_ELM.fit_agg(x_train, target)
             spectral_features = torch.zeros(Q,P).to(device)
             for elm in ELMs:
-                current_model=elm.fit_AE(x_train)
+                current_model=elm.fit_AE(sample)
                 spectral_features = spectral_features + current_model
 
             if Q==1:
@@ -319,7 +324,7 @@ class ELMaggregative(Module):
               
             pooled_features= torch.nan_to_num(pooled_features)
             out.append(pooled_features)
-            sample=[]
+
 
         return torch.stack(out)
 
