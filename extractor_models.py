@@ -103,7 +103,8 @@ class extractor_isotropic_features(Module):
                     self.net = timm.create_model(model, pretrained=True, exportable=True)
         for param in self.net.parameters():
             param.requires_grad = False
-            
+       
+        # features_depth=['quarter', 'middle', 'top_quarter', 'last'] #isotropic always return all features
         self.net.eval()
         self.layers = get_feature_dict(model, features_depth)
         self.feature_extractor = create_feature_extractor(self.net, return_nodes=self.layers)

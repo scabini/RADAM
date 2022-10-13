@@ -8,4 +8,5 @@ __pycache__/
 .vscode/
 latex.txt
 TESTS_*
+OLD_*
 code_RNN/self_attention.py

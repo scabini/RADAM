@@ -65,27 +65,27 @@ class ELM_AE():
     #     self._beta = torch.mm(target, torch.pinverse(H))
     #     return self._beta
     
-    def fit_agg(self, x, target_):       
-        # x = torch.add(x, self.pos_encoding) #simpler case, adds pos encoding
-        temp = torch.mm(self._alpha, x)
-        # temp = torch.mm(self._alpha, torch.cat((x, self.pos_encoding))) # new case, concatenate the encoding
+    # def fit_agg(self, x, target_):       
+    #     # x = torch.add(x, self.pos_encoding) #simpler case, adds pos encoding
+    #     temp = torch.mm(self._alpha, x)
+    #     # temp = torch.mm(self._alpha, torch.cat((x, self.pos_encoding))) # new case, concatenate the encoding
 
-        # H = self._activation(torch.add(temp, self.bias))
-        H = self._activation(temp)
+    #     # H = self._activation(torch.add(temp, self.bias))
+    #     H = self._activation(temp)
         
-        # self._beta = torch.mm(torch.mm(x, H.t()), torch.linalg.inv(torch.mm(H, H.t()) + self._lambda * self._eye))
+    #     # self._beta = torch.mm(torch.mm(x, H.t()), torch.linalg.inv(torch.mm(H, H.t()) + self._lambda * self._eye))
         
-        # self._beta = torch.mm(target_, torch.pinverse(H))
-        self._beta = torch.linalg.lstsq(H.t(), target_.t()).solution
-        return self._beta
+    #     # self._beta = torch.mm(target_, torch.pinverse(H))
+    #     self._beta = torch.linalg.lstsq(H.t(), target_.t()).solution
+    #     return self._beta
     
     # def evaluate(self, x, t):
     #     y_pred = self.predict(x)
     #     acc = torch.sum(torch.argmax(y_pred, dim=1) == torch.argmax(t, dim=1)).item() / len(t)
     #     return acc
     
-    def get_output_weights(self):
-        return self._beta
+    # def get_output_weights(self):
+    #     return self._beta
         
 def LCG(m, n, seed):
     L = m*n

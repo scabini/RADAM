@@ -12,7 +12,9 @@ def parse_args():
     parser.add_argument('--model', type=str, default='resnet18', help='Name of an architecture to experiment with (see models.py')
     parser.add_argument('--depth', type=str, default='last', help='Depth of the feature map to use (last, middle, or quarter)')
     parser.add_argument('--pooling', type=str, default='AvgPool2d', help='Pooling technique (pytorch module/layer name, eg. AvgPool2d)')
-    
+    parser.add_argument('--M', type=int, default=1, help='M parameter, only works with the ELM pooling method')
+
+
     parser.add_argument('--dataset', type=str, default='LeavesTex1200', help='dataset name, same as the dataloader name')
     parser.add_argument('--grayscale',  action='store_true', default=False, help='Converts images to grayscale')
     parser.add_argument('--K', type=int, default=10, help='Number of splits for K-fold stratified cross validation')
@@ -27,6 +29,10 @@ def parse_args():
    
     return parser.parse_args()
 
+def warn(*args, **kwargs):
+    pass
+import warnings
+warnings.warn = warn
 import os
 import numpy as np
 import random
@@ -41,6 +47,7 @@ os.environ["CUDA_VISIBLE_DEVICES"]=args.gpu
 import torch
 import torchvision
 from feature_extraction import extract_features
+# from feature_extraction import extract_features_custom_nodes as extract_features
 import sklearn
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from classifiers import torch_LDA
@@ -72,14 +79,17 @@ if __name__ == "__main__":
     os.makedirs(os.path.join(args.output_path, 'feature_matrix', args.dataset), exist_ok=True)
     os.makedirs(os.path.join(args.output_path, 'classification', args.dataset), exist_ok=True)
      
+    if 'RAE' not in args.pooling :
+        args.M=''
+        
     gtruth_= []
     preds_KNN, preds_LDA, preds_SVM = [], [], []
     accs_KNN, accs_LDA, accs_SVM = [], [], []
  
-    print(args.model,  args.depth,  args.pooling, args.dataset, args.input_dimm)
+    print(args.model,  args.depth,  args.pooling, 'M=', args.M, args.dataset, args.input_dimm)
     # print('Evaluating fold (...)= ', sep=' ', end='', flush=True)    
-    file2 = [args.output_path +  '/classification/' + args.dataset + '/' + args.model + '_' + args.depth + '_' + args.pooling + '_'
-                + args.dataset + '_' + args.input_dimm +  '_gray' + str(args.grayscale) + '_K' + str(args.K) +'_EVALUATION.pkl'][0]
+    file2 = [args.output_path +  '/classification/' + args.dataset + '/' + args.model + '_' + args.depth + '_' + args.pooling + str(args.M)
+             + '_' + args.dataset + '_' + args.input_dimm +  '_gray' + str(args.grayscale) + '_K' + str(args.K) +'_EVALUATION.pkl'][0]
 
     base_seed = args.seed
     
@@ -133,8 +143,8 @@ if __name__ == "__main__":
         for partition in range(splits):
             # print(str(partition+1) + ', ', sep=' ', end='', flush=True)
             
-            file = [args.output_path + '/feature_matrix/' + args.dataset + '/' + args.model + '_' + args.depth + '_' + args.pooling + '_'
-                        + args.dataset + '_' + str(args.input_dimm) + '_gray' + str(args.grayscale) + '_AllSamples.pkl'][0]
+            file = [args.output_path + '/feature_matrix/' + args.dataset + '/' + args.model + '_' + args.depth + '_' + args.pooling + str(args.M)
+                    + '_' + args.dataset + '_' + str(args.input_dimm) + '_gray' + str(args.grayscale) + '_AllSamples.pkl'][0]
     
             if not os.path.isfile(file2):         
                 if os.path.isfile(file) :
@@ -175,7 +185,7 @@ if __name__ == "__main__":
                             dataset= DATASETS_[args.dataset](root=path, download=True,
                                                                 transform=_transform) 
                             
-                            X_, Y_ = extract_features(args.model, dataset, depth=args.depth, pooling=args.pooling,
+                            X_, Y_ = extract_features(args.model, dataset, depth=args.depth, pooling=args.pooling, M=args.M,
                                                       batch_size=args.batch_size, multigpu=args.multigpu, seed=seed)       
                                         
                             # with open(file, 'wb') as f:
@@ -198,14 +208,14 @@ if __name__ == "__main__":
                                                     suite=args.dataset.split('Outex')[1],                                                      
                                                     transform=_transform) 
                         
-                        X_train,Y_train = extract_features(args.model, train_dataset, depth=args.depth, pooling=args.pooling,
+                        X_train,Y_train = extract_features(args.model, train_dataset, depth=args.depth, pooling=args.pooling, M=args.M,
                                                            batch_size=args.batch_size, multigpu=args.multigpu, seed=seed)        
                         
                         test_dataset= DATASETS_['Outex'](root=outex_path, split='test',
                                                     suite=args.dataset.split('Outex')[1],
                                                     transform=_transform)
                         
-                        X_test,Y_test = extract_features(args.model, test_dataset, depth=args.depth, pooling=args.pooling,
+                        X_test,Y_test = extract_features(args.model, test_dataset, depth=args.depth, pooling=args.pooling, M=args.M,
                                                          batch_size=args.batch_size, multigpu=args.multigpu, seed=seed)
                         # with open(file, 'wb') as f:
                         #     pickle.dump([X_train, Y_train, X_test, Y_test, train_dataset._image_files, test_dataset._image_files], f)
@@ -215,7 +225,7 @@ if __name__ == "__main__":
                             dataset= DATASETS_[args.dataset](root=path,
                                                              transform= _transform, grayscale=args.grayscale)
                             
-                            X_,Y_ = extract_features(args.model, dataset, depth=args.depth, pooling=args.pooling,
+                            X_,Y_ = extract_features(args.model, dataset, depth=args.depth, pooling=args.pooling, M=args.M,
                                                      batch_size=args.batch_size, multigpu=args.multigpu, seed=seed) 
                             
                             # with open(file, 'wb') as f:
@@ -310,7 +320,7 @@ if __name__ == "__main__":
                     SVM = svm.SVC(C=1.0, kernel='linear', degree=3, gamma='scale', 
                                   coef0=0.0, shrinking=True, probability=False, tol=0.001,
                                   cache_size=200, class_weight=None, verbose=False, 
-                                  max_iter=-1, decision_function_shape='ovr', 
+                                  max_iter=50000, decision_function_shape='ovr', 
                                   break_ties=False, random_state=seed)
                     
                     # param_space = dict(C=[1, 3, 100],                                 
