@@ -10,7 +10,7 @@ def parse_args():
 
     #methods
     parser.add_argument('--model', type=str, default='resnet18', help='Name of an architecture to experiment with (see models.py')
-    parser.add_argument('--depth', type=str, default='last', help='Depth of the feature map to use (last, middle, or quarter)')
+    parser.add_argument('--depth', type=str, default='last', help='Depth of the feature map to consider (use all for aggregation')
     parser.add_argument('--pooling', type=str, default='AvgPool2d', help='Pooling technique (pytorch module/layer name, eg. AvgPool2d)')
     parser.add_argument('--M', type=int, default=1, help='M parameter, only works with the ELM pooling method')
 
@@ -320,7 +320,7 @@ if __name__ == "__main__":
                     SVM = svm.SVC(C=1.0, kernel='linear', degree=3, gamma='scale', 
                                   coef0=0.0, shrinking=True, probability=False, tol=0.001,
                                   cache_size=200, class_weight=None, verbose=False, 
-                                  max_iter=50000, decision_function_shape='ovr', 
+                                  max_iter=100000, decision_function_shape='ovr', 
                                   break_ties=False, random_state=seed)
                     
                     # param_space = dict(C=[1, 3, 100],                                 
