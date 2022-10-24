@@ -43,12 +43,11 @@ class ELM_AE():
     
     def fit_AE(self, x):       
         x = torch.add(x, self.pos_encoding) #simpler case, adds pos encoding
-        temp = torch.mm(self._alpha, x)
         # temp = torch.add(temp, self.pos_encoding)
         # temp = torch.mm(self._alpha, torch.cat((x, self.pos_encoding))) # new case, concatenate the encoding
 
         # H = self._activation(torch.add(temp, self.bias))
-        H = self._activation(temp)
+        H = self._activation(torch.mm(self._alpha, x))
         # self._beta = torch.mm(torch.mm(x, H.t()), torch.linalg.inv(torch.mm(H, H.t()) + self._lambda * self._eye))
         
         # self._beta = torch.mm(x, torch.pinverse(H))
@@ -92,33 +91,26 @@ def LCG(m, n, seed):
     
     if L == 1:
         return torch.ones((1,1), dtype=torch.float)
-    # else:                    
-    #     V = torch.zeros(L, dtype=torch.float)
-        
-    #     #### Initial approach, according to Jarbas
-    #     # if L == 4:
-    #     #     V[0] = L+2.0
-    #     # else:
-    #     #     V[0] = L+1.0        
-    #     # a = L+2.0
-    #     # b = L+3.0        
-    #     # c = L**2.0
-        
-    #     ### Better approach
-    #     V[0] = 0
-    #     a = 75
-    #     b = 74   
-    #     c = (2**16)+1
-        
-    #     for x in range(1, (m*n)):
-    #         V[x] = (a*V[x-1]+b) % c
+    else:      
 
-    else:
         with open('code_RNN/weights.pkl', 'rb') as f:
             V = pickle.load(f)
             f.close()      
         V = V[seed:L+seed]
+              
+        ##### If you want to generate the weights everytime, instead of loading
+        #       from our file, just uncomment these lines below and remove the above ones
         
+        #V = torch.zeros(L, dtype=torch.float)    
+        #V[0] = 0
+        #a = 75
+        #b = 74   
+        #c = (2**16)+1        
+        #for x in range(1, (m*n)):
+        #   V[x] = (a*V[x-1]+b) % c
+
+          
+        #Always keep the zscore normalization for our LCG weights
         V = torch.divide(torch.subtract(V, torch.mean(V)), torch.std(V))
  
     return V.reshape((m,n))

@@ -24,7 +24,7 @@ def parse_args():
 
     #hyperparameters
     # WIP
-    parser.add_argument('--iterations', type=int, default=1, help='Number of random repetitions for k-fold/classifier seeds. Final results will consider average/variance of all K*iterations')
+    # parser.add_argument('--iterations', type=int, default=1, help='Number of random repetitions for k-fold/classifier seeds. Final results will consider average/variance of all K*iterations')
     parser.add_argument('--seed', type=int, default=666999, help='Base random seed for weight initialization and data splits/shuffle')
    
     return parser.parse_args()
@@ -66,9 +66,9 @@ if __name__ == "__main__":
     
     DATASETS_ = {'DTD' : datasets.DTD,
                  'FMD' : datasets.FMD,
-                 'USPtex': datasets.USPtex,
+                 # 'USPtex': datasets.USPtex,
                  'LeavesTex1200': datasets.LeavesTex1200,
-                 'MBT': datasets.MBT,
+                 # 'MBT': datasets.MBT,
                  'KTH-TIPS2-b': datasets.KTH_TIPS2_b,
                  'Outex' : datasets.Outex,
                  'MINC': datasets.MINC
@@ -82,9 +82,7 @@ if __name__ == "__main__":
     if 'RAE' not in args.pooling :
         args.M=''
         
-    gtruth_= []
-    preds_KNN, preds_LDA, preds_SVM = [], [], []
-    accs_KNN, accs_LDA, accs_SVM = [], [], []
+    
  
     print(args.model,  args.depth,  args.pooling, 'M=', args.M, args.dataset, args.input_dimm)
     # print('Evaluating fold (...)= ', sep=' ', end='', flush=True)    
@@ -113,39 +111,39 @@ if __name__ == "__main__":
             # torchvision.transforms.CenterCrop(args.input_dimm)
         ])        
     
+    ### kfold
+    args.iterations = 1
+    if args.dataset == 'Outex13' or args.dataset == 'Outex14':
+        args.K = 1 #these Outexes have a single train/test split
+    elif args.dataset == 'DTD':
+        args.K = 10 #DTD have a fixed set of 10 splits
+    elif 'KTH' in args.dataset:
+        args.K = 4 #KTH2 have a fixed set of 4 splits
+    elif args.dataset == 'MINC':
+        args.K = 5 #MINC have a fixed set of 5 splits
+    elif args.dataset == 'FMD' or args.dataset == 'LeavesTex1200':
+        args.iterations = 10
+     
+    splits = args.K #datasets with no defined sets get randomly K-splited
+    
+    gtruth_= []
+    preds_KNN, preds_LDA, preds_SVM = [], [], []
+    accs_KNN, accs_LDA, accs_SVM = [], [], []
+    #file name for saving feature matrices (we are not saving right now...)
+    file = [args.output_path + '/feature_matrix/' + args.dataset + '/' + args.model + '_' + args.depth + '_' + args.pooling + str(args.M)
+            + '_' + args.dataset + '_' + str(args.input_dimm) + '_gray' + str(args.grayscale) + '_AllSamples.pkl'][0]
     for it_ in range(args.iterations):
         seed = base_seed*(it_+1)
         torch.manual_seed(seed)
         random.seed(seed)
         np.random.seed(seed)
-        
-        ### leave-one-out
-        # splits = 1200
-        # crossval = model_selection.KFold(n_splits=splits, shuffle=True, random_state=args.seed+1)
-        
-        ### kfold
-        if args.dataset == 'Outex13' or args.dataset == 'Outex14':
-            args.K = 1 #these Outexes have a single train/test split
-        elif args.dataset == 'DTD':
-            args.K = 10 #DTD have a fixed set of 10 splits
-        elif 'KTH' in args.dataset:
-            args.K = 4 #KTH2 have a fixed set of 4 splits
-        elif args.dataset == 'MINC':
-            args.K = 5 #MINC have a fixed set of 5 splits
-            
-        splits = args.K #datasets with no defined sets get randomly K-splited
-        
+    
         if 'KTH' in args.dataset:
             crossval = model_selection.PredefinedSplit        
-        elif args.dataset != 'DTD' and 'Outex' not in args.dataset:
+        elif args.dataset != 'DTD' and args.dataset != 'MINC' and 'Outex' not in args.dataset:
             crossval = model_selection.StratifiedKFold(n_splits=splits, shuffle=True, random_state=seed+1)
 
         for partition in range(splits):
-            # print(str(partition+1) + ', ', sep=' ', end='', flush=True)
-            
-            file = [args.output_path + '/feature_matrix/' + args.dataset + '/' + args.model + '_' + args.depth + '_' + args.pooling + str(args.M)
-                    + '_' + args.dataset + '_' + str(args.input_dimm) + '_gray' + str(args.grayscale) + '_AllSamples.pkl'][0]
-    
             if not os.path.isfile(file2):         
                 if os.path.isfile(file) :
                     if 'Outex' in args.dataset:
@@ -154,8 +152,7 @@ if __name__ == "__main__":
                     else:
                         if partition == 0:
                             with open(file, 'rb') as f:
-                                X_, Y_, files = pickle.load(f)
-                                # X_test,Y_test = X_train,Y_train                               
+                                X_, Y_, files = pickle.load(f)                              
                             
                             if 'KTH' in args.dataset:
                                 crossval = crossval(DATASETS_[args.dataset](root=path, load_all=False).splits) 
@@ -221,12 +218,13 @@ if __name__ == "__main__":
                         #     pickle.dump([X_train, Y_train, X_test, Y_test, train_dataset._image_files, test_dataset._image_files], f)
                         
                     else:
-                        if partition == 0:                            
-                            dataset= DATASETS_[args.dataset](root=path,
-                                                             transform= _transform, grayscale=args.grayscale)
-                            
-                            X_,Y_ = extract_features(args.model, dataset, depth=args.depth, pooling=args.pooling, M=args.M,
-                                                     batch_size=args.batch_size, multigpu=args.multigpu, seed=seed) 
+                        if partition == 0: 
+                            if it_ == 0:
+                                dataset= DATASETS_[args.dataset](root=path,
+                                                                 transform= _transform, grayscale=args.grayscale)
+                                
+                                X_,Y_ = extract_features(args.model, dataset, depth=args.depth, pooling=args.pooling, M=args.M,
+                                                         batch_size=args.batch_size, multigpu=args.multigpu, seed=seed) 
                             
                             # with open(file, 'wb') as f:
                             #     pickle.dump([X_, Y_, dataset._image_files], f)
@@ -253,15 +251,6 @@ if __name__ == "__main__":
                     print(time.time()-start_time, 's so far, now classifying...', (X_train.shape, X_test.shape))
                 gtruth_.append(Y_test)
                 with parallel_backend('threading', n_jobs=16):
-                    # np.seterr(all='ignore')
-                    # data_norm = PowerTransformer(standardize=False)
-                    # data_norm.fit(X_train)
-                    # X_train= np.nan_to_num(data_norm.transform(X_train))
-                    # X_test = np.nan_to_num(data_norm.transform(X_test))                    
-                    # data_norm = StandardScaler()
-                    # data_norm.fit(X_train)
-                    # X_train= np.nan_to_num(data_norm.transform(X_train))
-                    # X_test = np.nan_to_num(data_norm.transform(X_test)) 
                     
                     KNN = KNeighborsClassifier(n_neighbors=1, weights='uniform', algorithm='auto', 
                                                 leaf_size=30, p=2, metric='minkowski', metric_params=None)
@@ -300,23 +289,7 @@ if __name__ == "__main__":
                     acc= sklearn.metrics.accuracy_score(Y_test, preds)
                     accs_LDA.append(acc*100)  
                     
-                    ### GPU LDA
-                    # device = "cuda" if torch.cuda.is_available() else "cpu"
-                    # n_classes=len(np.unique(Y_train))
-                    # LDA = torch_LDA.LDA(n_classes=n_classes, lamb=0.001)
-                    # _, evals = LDA(torch.from_numpy(X_train).to(device), torch.from_numpy(Y_train).to(device))
-                    
-                    # # calculate lda loss
-                    # loss = torch_LDA.lda_loss(evals, n_classes, n_eig=2, margin=0.01)
-                    # loss.backward()
-
-                    # # use LDA as classifier
-                    # preds = LDA.predict(torch.from_numpy(X_test).to(device))
-                    # preds_LDA.append(preds)            
-                    # acc= sklearn.metrics.accuracy_score(Y_test, preds.cpu().detach().numpy())
-                    # accs_LDA.append(acc*100)
-                        
-            
+              
                     SVM = svm.SVC(C=1.0, kernel='linear', degree=3, gamma='scale', 
                                   coef0=0.0, shrinking=True, probability=False, tol=0.001,
                                   cache_size=200, class_weight=None, verbose=False, 
@@ -335,21 +308,34 @@ if __name__ == "__main__":
                     acc= sklearn.metrics.accuracy_score(Y_test, preds)
                     accs_SVM.append(acc*100)       
 
-            results = {'gtruth_':gtruth_,
-                        'preds_KNN':preds_KNN,
-                        'accs_KNN':accs_KNN,
-                        'preds_LDA':preds_LDA,
-                        'accs_LDA':accs_LDA,
-                        'preds_SVM':preds_SVM,
-                        'accs_SVM':accs_SVM}  
-         
-    if not os.path.isfile(file2): 
-        with open(file2, 'wb') as f:
-            pickle.dump(results, f)
-    
     if os.path.isfile(file2):           
         with open(file2, 'rb') as f:
             results = pickle.load(f) 
+            
+    else:
+        results = {'gtruth_':gtruth_,
+                    'preds_KNN':preds_KNN,
+                    'accs_KNN':accs_KNN,
+                    'preds_LDA':preds_LDA,
+                    'accs_LDA':accs_LDA,
+                    'preds_SVM':preds_SVM,
+                    'accs_SVM':accs_SVM}  
+         
+        with open(file2, 'wb') as f:
+            pickle.dump(results, f)
+    
+    
+     
+    if args.iterations > 1: #in this case avg acc is computed over iterations, and std over these averages
+        knn, lda, svm = [], [], []
+        for it_ in range(args.iterations):
+            knn.append(np.mean(results['accs_KNN'][it_*args.K: it_*args.K + args.K]))
+            lda.append(np.mean(results['accs_LDA'][it_*args.K: it_*args.K + args.K]))
+            svm.append(np.mean(results['accs_SVM'][it_*args.K: it_*args.K + args.K]))        
+        results['accs_KNN'] = knn
+        results['accs_LDA'] = lda
+        results['accs_SVM'] = svm
+    
         
     print('Acc: ', sep=' ', end='', flush=True)   
     print('KNN:', f"{np.round(np.mean(results['accs_KNN']), 1):.1f} (+-{np.round(np.std(results['accs_KNN']), 1):.1f})", sep=' ', end='', flush=True)      
