@@ -1,4 +1,4 @@
-name: timm_tfe_evolved
+name: timm_texture
 channels:
   - defaults
 dependencies:
@@ -77,4 +77,6 @@ dependencies:
   - jpeg=9e
   - mkl_fft=1.3.1
   - pandas
-prefix: /home/scabini/anaconda3/envs/timm_tfe_evolved
+  - pip:
+    - einops==0.4.1
+    - timm==0.6.7
