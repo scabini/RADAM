@@ -71,7 +71,9 @@ if __name__ == "__main__":
                  # 'MBT': datasets.MBT,
                  'KTH-TIPS2-b': datasets.KTH_TIPS2_b,
                  'Outex' : datasets.Outex,
-                 'MINC': datasets.MINC
+                 'MINC': datasets.MINC,
+                 'GTOS': datasets.GTOS,
+                 'GTOS-Mobile': datasets.GTOS_mobile
                 }
 
     ##########
@@ -113,14 +115,14 @@ if __name__ == "__main__":
     
     ### kfold
     args.iterations = 1
-    if args.dataset == 'Outex13' or args.dataset == 'Outex14':
-        args.K = 1 #these Outexes have a single train/test split
+    if args.dataset == 'Outex13' or args.dataset == 'Outex14' or args.dataset == 'GTOS-Mobile':
+        args.K = 1 #these Outexes and GTOS have a single train/test split
     elif args.dataset == 'DTD':
         args.K = 10 #DTD have a fixed set of 10 splits
     elif 'KTH' in args.dataset:
         args.K = 4 #KTH2 have a fixed set of 4 splits
-    elif args.dataset == 'MINC':
-        args.K = 5 #MINC have a fixed set of 5 splits
+    elif args.dataset == 'MINC'  or args.dataset == 'GTOS':
+        args.K = 5 #MINC and GTOS have a fixed set of 5 splits
     elif args.dataset == 'FMD' or args.dataset == 'LeavesTex1200':
         args.iterations = 10
      
@@ -140,44 +142,45 @@ if __name__ == "__main__":
     
         if 'KTH' in args.dataset:
             crossval = model_selection.PredefinedSplit        
-        elif args.dataset != 'DTD' and args.dataset != 'MINC' and 'Outex' not in args.dataset:
+        elif args.dataset != 'DTD' and args.dataset != 'MINC' and 'Outex' not in args.dataset and 'GTOS-Mobile' not in args.dataset:
             crossval = model_selection.StratifiedKFold(n_splits=splits, shuffle=True, random_state=seed+1)
 
         for partition in range(splits):
             if not os.path.isfile(file2):         
                 if os.path.isfile(file) :
-                    if 'Outex' in args.dataset:
-                        with open(file, 'rb') as f:
-                            X_train,Y_train,X_test,Y_test = pickle.load(f) 
-                    else:
-                        if partition == 0:
-                            with open(file, 'rb') as f:
-                                X_, Y_, files = pickle.load(f)                              
+                    TODO=None # I DISABLED THIS PART SINCE WE ARE NOT SAVING THE FEATURE MATRICES ANYMORE
+                    # if 'Outex' in args.dataset or args.dataset == 'GTOS-Mobile':
+                    #     with open(file, 'rb') as f:
+                    #         X_train,Y_train,X_test,Y_test = pickle.load(f) 
+                    # else:
+                    #     if partition == 0:
+                    #         with open(file, 'rb') as f:
+                    #             X_, Y_, files = pickle.load(f)                              
                             
-                            if 'KTH' in args.dataset:
-                                crossval = crossval(DATASETS_[args.dataset](root=path, load_all=False).splits) 
+                    #         if 'KTH' in args.dataset:
+                    #             crossval = crossval(DATASETS_[args.dataset](root=path, load_all=False).splits) 
                                 
-                            elif 'DTD' in args.dataset or 'MINC' in args.dataset:
-                                dataset = DATASETS_[args.dataset](root=path)
-                            else:                                
-                                crossval.get_n_splits(X_, Y_)                    
-                                crossval=crossval.split(X_, Y_)                            
+                    #         elif 'DTD' in args.dataset or 'MINC' in args.dataset:
+                    #             dataset = DATASETS_[args.dataset](root=path)
+                    #         else:                                
+                    #             crossval.get_n_splits(X_, Y_)                    
+                    #             crossval=crossval.split(X_, Y_)                            
                           
-                        if 'DTD' in args.dataset or 'MINC' in args.dataset:
-                            train_index = dataset.get_indexes(split="train", partition=partition+1)
-                            if args.dataset == 'DTD':
-                                val_index = dataset.get_indexes(split="val", partition=partition+1)
-                            else:
-                                val_index = dataset.get_indexes(split="validate", partition=partition+1)
-                            train_index = train_index + val_index
-                            test_index = dataset.get_indexes(split="test", partition=partition+1)
-                        else:
-                            train_index, test_index = next(crossval) 
+                    #     if 'DTD' in args.dataset or 'MINC' in args.dataset:
+                    #         train_index = dataset.get_indexes(split="train", partition=partition+1)
+                    #         if args.dataset == 'DTD':
+                    #             val_index = dataset.get_indexes(split="val", partition=partition+1)
+                    #         else:
+                    #             val_index = dataset.get_indexes(split="validate", partition=partition+1)
+                    #         train_index = train_index + val_index
+                    #         test_index = dataset.get_indexes(split="test", partition=partition+1)
+                    #     else:
+                    #         train_index, test_index = next(crossval) 
                             
-                        X_test,Y_test = X_[test_index], Y_[test_index]
-                        X_train, Y_train = X_[train_index], Y_[train_index]
+                    #     X_test,Y_test = X_[test_index], Y_[test_index]
+                    #     X_train, Y_train = X_[train_index], Y_[train_index]
                 else:            
-                    if args.dataset == 'DTD' or args.dataset == 'MINC':
+                    if args.dataset == 'DTD' or args.dataset == 'MINC' or args.dataset == 'GTOS':
                         if partition == 0: 
                             dataset= DATASETS_[args.dataset](root=path, download=True,
                                                                 transform=_transform) 
@@ -216,6 +219,18 @@ if __name__ == "__main__":
                                                          batch_size=args.batch_size, multigpu=args.multigpu, seed=seed)
                         # with open(file, 'wb') as f:
                         #     pickle.dump([X_train, Y_train, X_test, Y_test, train_dataset._image_files, test_dataset._image_files], f)
+                    elif args.dataset == 'GTOS-Mobile':
+                        train_dataset= DATASETS_['GTOS-Mobile'](root=path, split='train',                                                                                                       
+                                                    transform=_transform) 
+                        
+                        X_train,Y_train = extract_features(args.model, train_dataset, depth=args.depth, pooling=args.pooling, M=args.M,
+                                                           batch_size=args.batch_size, multigpu=args.multigpu, seed=seed)        
+                        
+                        test_dataset= DATASETS_['GTOS-Mobile'](root=path, split='test',                                                                                                       
+                                                    transform=_transform) 
+                        
+                        X_test,Y_test = extract_features(args.model, test_dataset, depth=args.depth, pooling=args.pooling, M=args.M,
+                                                         batch_size=args.batch_size, multigpu=args.multigpu, seed=seed)
                         
                     else:
                         if partition == 0: 
@@ -248,7 +263,8 @@ if __name__ == "__main__":
     
             if not os.path.isfile(file2):
                 if partition == 0: 
-                    print(time.time()-start_time, 's so far, now classifying...', (X_train.shape, X_test.shape))
+                    print(f"{time.time()-start_time}:.4f",                          
+                          's so far, now classifying...', (X_train.shape, X_test.shape))
                 gtruth_.append(Y_test)
                 with parallel_backend('threading', n_jobs=16):
                     

@@ -9,6 +9,7 @@ Personal dataloaders for texture datasets
 import os
 import ntpath
 import torch
+from torchvision import datasets
 from torchvision.datasets import VisionDataset as Dataset
 from torchvision.datasets.utils import verify_str_arg, download_and_extract_archive
 from typing import Optional, Callable
@@ -492,9 +493,7 @@ class DTD(Dataset):
             return
         download_and_extract_archive(self._URL, download_root=str(self._base_folder), md5=self._MD5)
         
-class MINC(Dataset):
-    
-    
+class MINC(Dataset):  
     _URL = "http://opensurfaces.cs.cornell.edu/static/minc/minc-2500.tar.gz"
     
     def __init__(
@@ -588,4 +587,83 @@ class MINC(Dataset):
             return
         download_and_extract_archive(self._URL, download_root=str(self._base_folder))
         
+def GTOS_mobile(root, split='train', transform=None):
+    """
+    need to fill meta info about GTOS-Mobile...
+    """  
+    if split == 'train':
+        return datasets.ImageFolder(os.path.join(root, 'train'), transform)
+    elif split == 'test':
+        return datasets.ImageFolder(os.path.join(root, 'test'), transform)
+    else:
+        print("GTOS-MOBILE = WRONG SPLIT NAME!!!")
+              
+
+
+
+def find_classes(classdir):
+    classes = []
+    class_to_idx = {}
+    with open(classdir, 'r') as f:
+        for line in f:
+            label, name = line.split(' ')
+            classes.append(name)
+            class_to_idx[name] = int(label) - 1
+    return classes, class_to_idx
+
+
+def make_dataset(txtname, datadir):
+    rgbimages = []
+    diffimages = []
+    labels = []
+    with open(txtname, "r") as lines:
+        for line in lines:
+            name, label = line.split(' ')
+            name = name.split('/')[-1]
+            for filename in os.listdir(os.path.join(datadir, 'diff_imgs', name)):
+                _rgbimg = os.path.join(datadir, 'color_imgs', name, filename)
+                _diffimg = os.path.join(datadir, 'diff_imgs', name, filename)
+                assert os.path.isfile(_rgbimg)
+                rgbimages.append(_rgbimg)
+                diffimages.append(_diffimg)
+                labels.append(int(label)-1) 
+
+    return rgbimages, diffimages, labels
+
+
+class GTOS(Dataset):
+    def __init__(self, root, split, train=True, transform=None):
+        classes, class_to_idx = find_classes(os.path.join(root, 'labels/classInd.txt'))
+        self.classes = classes
+        self.class_to_idx = class_to_idx
+        self.train = train
+        self.transform = transform
+        split = str(split)
         
+        if train:
+            filename = os.path.join(root, 'labels/train'+ split +'.txt')
+        else:
+            filename = os.path.join(root, 'labels/test'+ split +'.txt')
+
+        self.rgbimages, self.diffimages, self.labels = make_dataset(filename, root)
+        assert (len(self.rgbimages) == len(self.labels))
+
+
+    def __getitem__(self, index):
+        _rgbimg = Image.open(self.rgbimages[index]).convert('RGB')
+        # _diffimg = Image.open(self.diffimages[index]).convert('RGB')
+        _label = self.labels[index]
+        if self.transform is not None:
+            _rgbimg = self.transform(_rgbimg)
+
+        return _rgbimg, _label
+
+    def __len__(self):
+        return len(self.rgbimages)
+        # return 10000              
+              
+          
+          
+          
+          
+          

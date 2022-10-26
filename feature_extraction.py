@@ -34,23 +34,26 @@ def extract_features(backbone, dataset, pooling, seed, depth='last', multigpu=Fa
 
     # print("System has", gpus, "GPUs and", total_cores, "CPU cores. Using", num_workers, "cores for data loaders.")
     device = "cuda" if torch.cuda.is_available() else "cpu"
-        
+    input_dim = dataset[0][0].size()[2]
+    
     ### Creating the model
     if 'RAE' in pooling and depth == 'all': #aggregative RAE use output_stride to control spatial dimms
-        model = models.timm_feature_extractor(backbone, output_stride=True)
+        model = models.timm_feature_extractor(backbone, output_stride=True, input_dim=input_dim,
+                                              depth=depth, pooling=pooling, M=M, device=device)
     else: 
-        model = models.timm_feature_extractor(backbone, output_stride=False)    
+        model = models.timm_feature_extractor(backbone, output_stride=False, input_dim=input_dim,
+                                              depth=depth, pooling=pooling, M=M, device=device)    
       
     model.net.to(device)
     
     data_loader = torch.utils.data.DataLoader(dataset,
                           batch_size=batch_size, shuffle = False, drop_last=False, pin_memory=True, num_workers=num_workers)  
    
-    feature_size = model(next(iter(data_loader))[0].to(device), depth, pooling, M=M).cpu().detach().numpy().shape[1]
+    feature_size = model(next(iter(data_loader))[0].to(device), depth).cpu().detach().numpy().shape[1]
     if feature_size > 10000:
         return 'error' #ignoring backbones with huge number of features
     # model()     
-    # print('extracting', feature_size, 'features...')
+    print('extracting', feature_size, 'features for', len(dataset), 'images...')
     X = np.empty((0,feature_size))
     Y = np.empty((0))
     
@@ -62,13 +65,14 @@ def extract_features(backbone, dataset, pooling, seed, depth='last', multigpu=Fa
       
         inputs, labels = data[0].to(device), data[1]   
               
-        X = np.vstack((X,model(inputs, depth, pooling, M=M).cpu().detach().numpy()))
+        X = np.vstack((X,model(inputs, depth).cpu().detach().numpy()))
 
         Y = np.hstack((Y, labels))
 
     del model.net
     del model
     del data_loader
+    del dataset
     return X,Y
 
 # def extract_features_custom_nodes(method, dataset, pooling, seed, depth='last', multigpu=False, batch_size=1, Q=1):

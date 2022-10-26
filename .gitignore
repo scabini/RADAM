@@ -9,4 +9,5 @@ __pycache__/
 latex.txt
 TESTS_*
 OLD_*
+*_OLD*
 code_RNN/self_attention.py
