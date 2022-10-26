@@ -600,7 +600,7 @@ def GTOS_mobile(root, split='train', transform=None):
               
 
 
-
+#%%
 def find_classes(classdir):
     classes = []
     class_to_idx = {}
@@ -611,43 +611,81 @@ def find_classes(classdir):
             class_to_idx[name] = int(label) - 1
     return classes, class_to_idx
 
-
+#%%
 def make_dataset(txtname, datadir):
     rgbimages = []
     diffimages = []
+    names = []
     labels = []
-    with open(txtname, "r") as lines:
+    classes = []
+    with open(txtname / "train1.txt", "r") as lines:
         for line in lines:
+            cl = line.split('/')[0]
             name, label = line.split(' ')
             name = name.split('/')[-1]
-            for filename in os.listdir(os.path.join(datadir, 'diff_imgs', name)):
+            for filename in os.listdir(os.path.join(datadir, 'color_imgs', name)):
                 _rgbimg = os.path.join(datadir, 'color_imgs', name, filename)
+                names.append(filename[:-4])
+                _diffimg = os.path.join(datadir, 'diff_imgs', name, filename)
+                assert os.path.isfile(_rgbimg)
+                rgbimages.append(_rgbimg)
+                diffimages.append(_diffimg)
+                labels.append(int(label)-1)
+                classes.append(cl) 
+                
+                
+    with open(txtname /"test1.txt", "r") as lines:
+        for line in lines:
+            cl = line.split('/')[0]
+            name, label = line.split(' ')
+            name = name.split('/')[-1]
+            for filename in os.listdir(os.path.join(datadir, 'color_imgs', name)):
+                _rgbimg = os.path.join(datadir, 'color_imgs', name, filename)
+                names.append(filename[:-4])
                 _diffimg = os.path.join(datadir, 'diff_imgs', name, filename)
                 assert os.path.isfile(_rgbimg)
                 rgbimages.append(_rgbimg)
                 diffimages.append(_diffimg)
                 labels.append(int(label)-1) 
+                classes.append(cl)
 
-    return rgbimages, diffimages, labels
+    return rgbimages, names, diffimages, labels, classes
 
-
+#%%
 class GTOS(Dataset):
-    def __init__(self, root, split, train=True, transform=None):
-        classes, class_to_idx = find_classes(os.path.join(root, 'labels/classInd.txt'))
-        self.classes = classes
-        self.class_to_idx = class_to_idx
-        self.train = train
+    def __init__(self, root, transform=None, download=False):
+        self._base_folder = pathlib.Path(root)
+        self._data_folder = self._base_folder
+        self._meta_folder = self._data_folder / "labels"
+           
         self.transform = transform
-        split = str(split)
+
+        self.rgbimages, names, _, _, classes = make_dataset(self._meta_folder, self._data_folder)
+        assert (len(self.rgbimages) == len(classes))
         
-        if train:
-            filename = os.path.join(root, 'labels/train'+ split +'.txt')
-        else:
-            filename = os.path.join(root, 'labels/test'+ split +'.txt')
+        self.name_to_idx = dict(zip(names, range(len(names))))
+        self.classes = sorted(set(classes))
+        self.class_to_idx = dict(zip(self.classes, range(len(self.classes))))
+        self.labels = [self.class_to_idx[cl] for cl in classes]
 
-        self.rgbimages, self.diffimages, self.labels = make_dataset(filename, root)
-        assert (len(self.rgbimages) == len(self.labels))
-
+    def get_indexes(self, split="train", partition=1):
+        
+        verify_str_arg(split, "split", ("train", "test"))
+        if not isinstance(partition, int) and not (1 <= partition <= 5):
+            raise ValueError(
+                f"Parameter 'partition' shoud be an integer with `1 <= partition <= 5`, "
+                f"but got {partition} instead"
+            )
+            
+        indexes = []
+        
+        with open(self._meta_folder / f"{split}{partition}.txt") as file:
+            for line in file:
+                folder = line.strip().split("/")[1].split(" ")[0]
+                for name in os.listdir(self._data_folder / "color_imgs" / folder):
+                    indexes.append(self.name_to_idx[name[:-4]])
+                
+        return indexes
 
     def __getitem__(self, index):
         _rgbimg = Image.open(self.rgbimages[index]).convert('RGB')
@@ -662,8 +700,9 @@ class GTOS(Dataset):
         return len(self.rgbimages)
         # return 10000              
               
+ #%%         
           
           
           
           
-          
+# %%
