@@ -53,6 +53,7 @@ class timm_feature_extractor(Module):
                  depth='all', pooling='RAEspatial', M=4, device="cuda" if torch.cuda.is_available() else "cpu"):
         
         super(timm_feature_extractor, self).__init__() 
+        self.depth=depth
         # We try to use output_strides to control the spatial dims at different depths 
         #   using timm builtin functions. If this is not possible, or if just some of the
         #   depths are resized, torchvision.transforms.Resize is used by our RADAM module below
@@ -101,8 +102,7 @@ class timm_feature_extractor(Module):
                 #   timm's features_only=True returns the activation blocks
                 SPATIAL_ = fmap_init[int(np.round(len(fmap_init)/2))].size()[2]
                 z = sum([a.size()[1] for a in fmap_init])  
-                        
-                
+                            
             if 'RAE' in pooling:
                 self.pooler =  POOLINGS[pooling](SPATIAL_, z, M, device)
             elif depth=='all':
@@ -111,15 +111,15 @@ class timm_feature_extractor(Module):
                 self.pooler =  POOLINGS[pooling]
 
     #The forward pass consists of input 4d tensor, pooling method, and M is only used for the RADAM method
-    def forward(self, x, depth='last'): 
+    def forward(self, x): 
         self.net.eval() #this is needed to disable batch norm, dropout, etc
         fmap = self.net(x)
         
         #the depth of the features is selected according to dict FEATURE_DEPTH
         #   it accepts either a single depth (eg. last, middle, etc)
-        #   or 'all', meaning the aggregative method: all feature blocks returned by timm are concatenated
-        if depth != 'all': 
-            fmap = fmap[int(FEATURE_DEPTH[depth](len(fmap)))]
+        #   or 'all', meaning the aggregative method: all feature blocks returned by timm are concatenated        
+        if self.depth != 'all': 
+            fmap = fmap[int(FEATURE_DEPTH[self.depth](len(fmap)))]
             
         return torch.flatten(self.pooler(fmap),
                              start_dim=1, end_dim=-1)
@@ -138,16 +138,16 @@ class RADAM(Module):
         #   It could be moved to the forward pass if the input dims are unknown.       
         
         self.rearange = nn.Sequential(lp_norm_layer(p=2.0, dim=dim_norm, eps=1e-10),
-                                      torchvision.transforms.Resize(spatial_dims),
+                                      torchvision.transforms.Resize(self.SPATIAL_),
                                       Rearrange('b c h w -> b c (h w)')
                                      )  #einops function for dimm reorganization
         self.Q=1 #we tried increasing Q, but simply summing weights is not a good approach in this case 
         self.z=z
-        device = 'cuda'
+        self.device = device
 
         self.RAEs = []
         for model in range(M):
-            self.RAEs.append(ELM.ELM_AE(Q=self.Q, P=z, N=spatial_dims**2, device=device, seed=model*(self.Q*z)))
+            self.RAEs.append(ELM.ELM_AE(Q=self.Q, P=z, N=self.SPATIAL_**2, device=device, seed=model*(self.Q*z)))
     ##### PARAMETERIZATION ends #################################################################################### 
         
     def forward(self, x):        
@@ -156,7 +156,7 @@ class RADAM(Module):
         if not isinstance(x, list): 
             x = [x] #just make x as a list, to loop below
             
-        device = x[0].get_device()
+        device = self.device
         batch, _, _, _ = x[0].size()
 
         #Our current implementation of RAEs/RADAM does not support batch computation.
@@ -171,6 +171,7 @@ class RADAM(Module):
             
             #train each of the m RAEs with leas-squares (see ELM.py) and summ their decoder weights 
             pooled_features = torch.zeros(self.Q,self.z).to(device)
+            
             for rae in self.RAEs:
                 pooled_features += rae.fit_AE(meta_activation_map)  
                 

@@ -49,7 +49,7 @@ def extract_features(backbone, dataset, pooling, seed, depth='last', multigpu=Fa
     data_loader = torch.utils.data.DataLoader(dataset,
                           batch_size=batch_size, shuffle = False, drop_last=False, pin_memory=True, num_workers=num_workers)  
    
-    feature_size = model(next(iter(data_loader))[0].to(device), depth).cpu().detach().numpy().shape[1]
+    feature_size = model(next(iter(data_loader))[0].to(device)).cpu().detach().numpy().shape[1]
     if feature_size > 10000:
         return 'error' #ignoring backbones with huge number of features
     # model()     
@@ -65,7 +65,7 @@ def extract_features(backbone, dataset, pooling, seed, depth='last', multigpu=Fa
       
         inputs, labels = data[0].to(device), data[1]   
               
-        X = np.vstack((X,model(inputs, depth).cpu().detach().numpy()))
+        X = np.vstack((X,model(inputs).cpu().detach().numpy()))
 
         Y = np.hstack((Y, labels))
 
