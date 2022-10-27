@@ -194,9 +194,11 @@ if __name__ == "__main__":
                         train_index = dataset.get_indexes(split="train", partition=partition+1)
                         if args.dataset == 'DTD':
                             val_index = dataset.get_indexes(split="val", partition=partition+1)
+                            train_index = train_index + val_index
                         elif args.dataset == "MINC":
-                            val_index = dataset.get_indexes(split="validate", partition=partition+1)
-                        train_index = train_index + val_index
+                            val_index = dataset.get_indexes(split="validate", partition=partition+1)                            
+                            train_index = train_index + val_index
+                            
                         test_index = dataset.get_indexes(split="test", partition=partition+1)
                         
                         X_train, Y_train = X_[train_index], Y_[train_index]
