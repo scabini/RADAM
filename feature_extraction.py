@@ -20,7 +20,7 @@ import models
 #   tries to use cuda for that, use CPU if no cuda device is available
 #   seed is used to improve reproducibility
 #   M only works for the ELM methods, otherwise it will just be ignored
-def extract_features(backbone, dataset, pooling, seed, depth='last', multigpu=False, batch_size=1, M=1):
+def extract_features(backbone, dataset, pooling, seed, depth='all', multigpu=False, batch_size=1, M=1):
     
     torch.manual_seed(seed)
     random.seed(seed)

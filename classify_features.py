@@ -17,9 +17,8 @@ def parse_args():
 
     parser.add_argument('--dataset', type=str, default='LeavesTex1200', help='dataset name, same as the dataloader name')
     parser.add_argument('--grayscale',  action='store_true', default=False, help='Converts images to grayscale')
-    parser.add_argument('--K', type=int, default=10, help='Number of splits for K-fold stratified cross validation')
 
-    parser.add_argument('--input_dimm', type=str, default='224', help='Image input size (single value, square). The standard is a forced resize to 224 (square)')
+    parser.add_argument('--input_dimm', type=int, default=224, help='Image input size (single value, square). The standard is a forced resize to 224 (square)')
     parser.add_argument('--batch_size', type=int, default=128, help='Batch size, increase for better speed, if you have enough VRAM')
 
     #hyperparameters
@@ -88,9 +87,7 @@ if __name__ == "__main__":
  
     print(args.model,  args.depth,  args.pooling, 'M=', args.M, args.dataset, args.input_dimm)
     # print('Evaluating fold (...)= ', sep=' ', end='', flush=True)    
-    file2 = [args.output_path +  '/classification/' + args.dataset + '/' + args.model + '_' + args.depth + '_' + args.pooling + str(args.M)
-             + '_' + args.dataset + '_' + args.input_dimm +  '_gray' + str(args.grayscale) + '_K' + str(args.K) +'_EVALUATION.pkl'][0]
-
+    
     base_seed = args.seed
     
     # ImageNet normalization parameters and other img transformations
@@ -105,7 +102,6 @@ if __name__ == "__main__":
             # torchvision.transforms.CenterCrop(args.input_dimm)
         ])   
     else:
-        args.input_dimm = int(args.input_dimm)
         _transform = torchvision.transforms.Compose([
             torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize(averages, variances),
@@ -115,7 +111,7 @@ if __name__ == "__main__":
     
     ### kfold
     args.iterations = 1
-    if args.dataset == 'Outex13' or args.dataset == 'Outex14' or args.dataset == 'GTOS-Mobile':
+    if args.dataset == 'Outex13' or args.dataset == 'Outex14' or args.dataset == 'Outex10' or args.dataset == 'Outex11' or args.dataset == 'GTOS-Mobile':
         args.K = 1 #these Outexes and GTOS have a single train/test split
     elif args.dataset == 'DTD':
         args.K = 10 #DTD have a fixed set of 10 splits
@@ -124,6 +120,7 @@ if __name__ == "__main__":
     elif args.dataset == 'MINC'  or args.dataset == 'GTOS':
         args.K = 5 #MINC and GTOS have a fixed set of 5 splits
     elif args.dataset == 'FMD' or args.dataset == 'LeavesTex1200':
+        args.K = 10
         args.iterations = 10
      
     splits = args.K #datasets with no defined sets get randomly K-splited
@@ -134,6 +131,10 @@ if __name__ == "__main__":
     #file name for saving feature matrices (we are not saving right now...)
     file = [args.output_path + '/feature_matrix/' + args.dataset + '/' + args.model + '_' + args.depth + '_' + args.pooling + str(args.M)
             + '_' + args.dataset + '_' + str(args.input_dimm) + '_gray' + str(args.grayscale) + '_AllSamples.pkl'][0]
+    
+    file2 = [args.output_path +  '/classification/' + args.dataset + '/' + args.model + '_' + args.depth + '_' + args.pooling + str(args.M)
+             + '_' + args.dataset + '_' + str(args.input_dimm) +  '_gray' + str(args.grayscale) + '_K' + str(args.K) +'_EVALUATION.pkl'][0]
+
     for it_ in range(args.iterations):
         seed = base_seed*(it_+1)
         torch.manual_seed(seed)
@@ -265,7 +266,7 @@ if __name__ == "__main__":
     
             if not os.path.isfile(file2):
                 if partition == 0: 
-                    print(f"{time.time()-start_time}:.4f",                          
+                    print(f"{time.time()-start_time:.4f}",                          
                           's so far, now classifying...', (X_train.shape, X_test.shape))
                 gtruth_.append(Y_test)
                 with parallel_backend('threading', n_jobs=16):

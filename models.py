@@ -17,12 +17,13 @@ import timm
 import numpy as np
 # from scipy import io
 # from code_RNN import RNN
-from code_RNN import ELM
+from RNN import RAE
 from einops.layers.torch import Rearrange
 
 
 POOLINGS = {'AvgPool2d': nn.AdaptiveAvgPool2d((1,1)), #Global Average Pooling (GAP)
-            'RAEspatial':  lambda spatial_dims, z, M, device: RADAM(spatial_dims, z, M, dim_norm=(2,3), device=device),
+            'RAEspatial':  lambda spatial_dims, z, M, device: RADAM(spatial_dims, z, M, dim_norm=(2,3), device=device, pos_encoding=True),
+            'RAEspatialnoembed':  lambda spatial_dims, z, M, device: RADAM(spatial_dims, z, M, dim_norm=(2,3), device=device, pos_encoding=False), #this one needs manual changin in ELM.py
             'RAEspectral': lambda spatial_dims, z, M, device: RADAM(spatial_dims, z, M, dim_norm=1, device=device),
             'RAEflat':     lambda spatial_dims, z, M, device: RADAM(spatial_dims, z, M, dim_norm=(1,2,3), device=device)
             # 'Spectral_Conv' : lambda WH : Spectral_Conv(1)
@@ -89,21 +90,21 @@ class timm_feature_extractor(Module):
         #   the same, so we initialize it only once.
         #   ATTENTION! The current implementation only works with squared inputs.
         #   For non-square inputs, check SPATIAL_ variable, the RADAM initialization and also positional encoding
-        else:
-            #using a dummy tensor to check the sizes of activation maps for the given backbone
-            fmap_init = self.net(torch.zeros(1,3,input_dim,input_dim)) 
-            
-            if depth != 'all': 
-                fmap_init = fmap_init[int(FEATURE_DEPTH[depth](len(fmap_init)))]
-                SPATIAL_ = fmap_init[0].size()[2] #the spatial dims will simply be the dimm of the single activation map
-                z=fmap_init[0].size()[1]
-            else:
-                #aggregative activation map: select the spatial dims around the middle of the list, considering how
-                #   timm's features_only=True returns the activation blocks
-                SPATIAL_ = fmap_init[int(np.round(len(fmap_init)/2))].size()[2]
-                z = sum([a.size()[1] for a in fmap_init])  
-                            
+        else:                            
             if 'RAE' in pooling:
+                #using a dummy tensor to check the sizes of activation maps for the given backbone
+                fmap_init = self.net(torch.zeros(1,3,input_dim,input_dim)) 
+                
+                if depth != 'all': 
+                    fmap_init = fmap_init[int(FEATURE_DEPTH[depth](len(fmap_init)))]
+                    SPATIAL_ = fmap_init[0].size()[2] #the spatial dims will simply be the dimm of the single activation map
+                    z=fmap_init[0].size()[1]
+                else:
+                    #aggregative activation map: select the spatial dims around the middle of the list, considering how
+                    #   timm's features_only=True returns the activation blocks
+                    SPATIAL_ = fmap_init[int(np.round(len(fmap_init)/2))].size()[2]
+                    z = sum([a.size()[1] for a in fmap_init]) 
+                    
                 self.pooler =  POOLINGS[pooling](SPATIAL_, z, M, device)
             elif depth=='all':
                 self.pooler = aggregation_GAP()
@@ -128,7 +129,7 @@ class timm_feature_extractor(Module):
 class RADAM(Module):
     #The current implementation does not fully integrate RADAM into the backbone, 
     #   so we need to set some things manually like the device to put the RAEs
-    def __init__(self, spatial_dims, z, M, device, dim_norm=(2,3)):
+    def __init__(self, spatial_dims, z, M, device, pos_encoding, dim_norm=(2,3)):
         super(RADAM, self).__init__()         
         # self.dim_=dim_norm
         self.SPATIAL_ = spatial_dims
@@ -147,7 +148,7 @@ class RADAM(Module):
 
         self.RAEs = []
         for model in range(M):
-            self.RAEs.append(ELM.ELM_AE(Q=self.Q, P=z, N=self.SPATIAL_**2, device=device, seed=model*(self.Q*z)))
+            self.RAEs.append(RAE(Q=self.Q, P=z, N=self.SPATIAL_**2, device=device, seed=model*(self.Q*z), pos_encoding=pos_encoding))
     ##### PARAMETERIZATION ends #################################################################################### 
         
     def forward(self, x):        

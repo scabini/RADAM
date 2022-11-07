@@ -1,16 +1,15 @@
 import math
 import torch
-from weight_rewiring import PA_rewiring_torch
+# from weight_rewiring import PA_rewiring_torch
 import pickle
-###############
-# ELM
-###############
 
-class ELM_AE():
-    def __init__(self, Q, P, N, device, seed):
+
+class RAE():
+    def __init__(self, Q, P, N, device, pos_encoding, seed):
         self._input_size = P
         self._h_size = Q
         self._device = device
+        self.pos_encoding=pos_encoding
         # self._lambda = 0.001
         
         # self._alpha = torch.ones(self._h_size, self._input_size).to(device)
@@ -19,9 +18,10 @@ class ELM_AE():
         # self._bias = LCG(self._h_size, 1)
         # self._bias = torch.ones((self._h_size, 1))
         
-        window_size = math.sqrt(N)
-        self.pos_encoding = positionalencoding2d(int(P), int(window_size), int(window_size))
-        self.pos_encoding = torch.reshape(self.pos_encoding, (P, N)).to(device)
+        if self.pos_encoding:
+            window_size = math.sqrt(N)
+            self.encoding = positionalencoding2d(int(P), int(window_size), int(window_size))
+            self.encoding = torch.reshape(self.encoding, (P, N)).to(device)
     
         # self.bias = torch.tile(self._bias, (1,N)).to(device)
         # self._eye = torch.eye(self._h_size, dtype=torch.float).to(device)
@@ -41,8 +41,9 @@ class ELM_AE():
     #     return self._activation(torch.add(temp, self.bias))
     
     
-    def fit_AE(self, x):       
-        x = torch.add(x, self.pos_encoding) #simpler case, adds pos encoding
+    def fit_AE(self, x):     
+        if self.pos_encoding:
+            x = torch.add(x, self.encoding) #simpler case, adds pos encoding
         # temp = torch.add(temp, self.pos_encoding)
         # temp = torch.mm(self._alpha, torch.cat((x, self.pos_encoding))) # new case, concatenate the encoding
 
@@ -93,7 +94,7 @@ def LCG(m, n, seed):
         return torch.ones((1,1), dtype=torch.float)
     else:      
 
-        with open('code_RNN/weights.pkl', 'rb') as f:
+        with open('RAE_LCG_weights.pkl', 'rb') as f:
             V = pickle.load(f)
             f.close()      
         V = V[seed:L+seed]
