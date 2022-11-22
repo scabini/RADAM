@@ -49,7 +49,7 @@ from feature_extraction import extract_features
 # from feature_extraction import extract_features_custom_nodes as extract_features
 import sklearn
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from classifiers import torch_LDA
+# from classifiers import torch_LDA
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn import svm, model_selection
 from sklearn.model_selection import RandomizedSearchCV 

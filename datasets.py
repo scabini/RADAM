@@ -200,8 +200,7 @@ class KTH_TIPS2_b(Dataset):
      Volume 1. Vol. 2. IEEE, 2005.
      https://www.csc.kth.se/cvap/databases/kth-tips/kth-tips2-b_col_200x200.tar
      
-     Validation splits: ?, some papers use random 10-fold, some use subfolders
-                        as folds
+     Validation splits: divided by samples (4-folds)
      """     
      def __init__(self, root, transform=None, load_all=True, grayscale=False):
          """

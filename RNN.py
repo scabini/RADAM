@@ -13,7 +13,7 @@ class RAE():
         # self._lambda = 0.001
         
         # self._alpha = torch.ones(self._h_size, self._input_size).to(device)
-        self._alpha = my_orth(LCG(self._h_size, self._input_size, seed)).to(device)
+        self._alpha = make_orthogonal(LCG(self._h_size, self._input_size, seed)).to(device)
         # self._alpha = PA_rewiring_torch(my_orth(LCG(self._h_size, self._input_size, seed)),stochastic=False,seed=seed).to(device)
         # self._bias = LCG(self._h_size, 1)
         # self._bias = torch.ones((self._h_size, 1))
@@ -116,7 +116,7 @@ def LCG(m, n, seed):
  
     return V.reshape((m,n))
     
-def my_orth(tensor):
+def make_orthogonal(tensor):
     rows = tensor.size(0)
     cols = tensor.numel() // rows
     flattened = torch.reshape(tensor, (rows, cols))
@@ -135,7 +135,7 @@ def my_orth(tensor):
         q.t_()
         
     return q
-    return tensor
+    # return tensor
 
 
 def positionalencoding2d(d_model, height, width):
