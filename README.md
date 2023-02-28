@@ -21,7 +21,7 @@ conda activate timm_tfe
 ## Setup used for experiments
 
 * Linux Ubuntu x86-64 18.04.5 LTS (Bionic Beaver)
-* Intel(R) Core(TM) i7-7820X CPU @ 3.60GHz, 96GB RAM
+* Intel(R) Core(TM) i7-7820X CPU @ 3.60GHz, 64GB RAM
 * GTX 1080 ti, NVIDIA driver Version: 470.141.03, CUDA Version: 11.4
 
 ## Available resources
