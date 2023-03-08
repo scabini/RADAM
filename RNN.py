@@ -1,6 +1,5 @@
 import math
 import torch
-# from weight_rewiring import PA_rewiring_torch
 import pickle
 
 
@@ -14,7 +13,6 @@ class RAE():
         
         # self._alpha = torch.ones(self._h_size, self._input_size).to(device)
         self._alpha = make_orthogonal(LCG(self._h_size, self._input_size, seed)).to(device)
-        # self._alpha = PA_rewiring_torch(my_orth(LCG(self._h_size, self._input_size, seed)),stochastic=False,seed=seed).to(device)
         # self._bias = LCG(self._h_size, 1)
         # self._bias = torch.ones((self._h_size, 1))
         
