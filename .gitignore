@@ -3,6 +3,7 @@ Experimenter_training.py
 gather_stored_results.py
 build_latexMatrix.py
 *.xlsx
+*.pdf
 test.py
 __pycache__/
 .vscode/

@@ -134,7 +134,7 @@ if __name__ == "__main__":
     
     file2 = [args.output_path +  '/classification/' + args.dataset + '/' + args.model + '_' + args.depth + '_' + args.pooling + str(args.M)
              + '_' + args.dataset + '_' + str(args.input_dimm) +  '_gray' + str(args.grayscale) + '_K' + str(args.K) +'_EVALUATION.pkl'][0]
-
+    #print(file2)
     for it_ in range(args.iterations):
         seed = base_seed*(it_+1)
         torch.manual_seed(seed)
@@ -320,8 +320,10 @@ if __name__ == "__main__":
                     #               tol=[1e-6, 1e-3])  
                     
                     # SVM = RandomizedSearchCV(SVM, param_space, n_iter=10, n_jobs=total_cores*2, cv=2, random_state=seed)
-                                        
+                    start_time2 = time.time()                    
                     SVM.fit(X_train,Y_train)
+                    print(f"SVM time: {time.time()-start_time2:.4f}")
+                    
                     preds=SVM.predict(X_test)            
                     preds_SVM.append(preds)            
                     acc= sklearn.metrics.accuracy_score(Y_test, preds)
@@ -356,10 +358,12 @@ if __name__ == "__main__":
         results['accs_SVM'] = svm
     
         
+    namess = {'RAEspatial':'RADAM', 'AvgPool2d':'GAP agg.'}
     print('Acc: ', sep=' ', end='', flush=True)   
     print('KNN:', f"{np.round(np.mean(results['accs_KNN']), 1):.1f} (+-{np.round(np.std(results['accs_KNN']), 1):.1f})", sep=' ', end='', flush=True)      
     print(' || LDA:', f"{np.round(np.mean(results['accs_LDA']), 1):.1f} (+-{np.round(np.std(results['accs_LDA']), 1):.1f})", sep=' ', end='', flush=True)      
     print(' || SVM:', f"{np.round(np.mean(results['accs_SVM']), 1):.1f} (+-{np.round(np.std(results['accs_SVM']), 1):.1f})", sep=' ', end='', flush=True)      
+    # print(' === ', args.model, namess[args.pooling], 'M=', args.M, args.dataset)
     print('\ntook', time.time()-start_time,'seconds', '-' * 70)
     # print('\n#### FINAL METRICS ###')  
     # print(args.model, args.dataset)      
