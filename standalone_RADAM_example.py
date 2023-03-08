@@ -11,8 +11,6 @@ datasets we explored in the paper since they are public. Eg.:
     https://pytorch.org/vision/main/generated/torchvision.datasets.DTD.html
     
 You can also find a 'requirements.yml' file attached, with the libraries we used.
-In the future, we will release our whole repository, with all the code used for
-experimentation, dataloaders, etc
 """
 
 model = 'convnext_nano' #select the timm backbone to be coupled with RADAM
