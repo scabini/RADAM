@@ -54,7 +54,7 @@ for model in backbones:
             
             criterion = torch.nn.CrossEntropyLoss()
             
-            net_temp = timm.create_model(model, pretrained=False, num_classes=100)
+            net_temp = timm.create_model(model, pretrained=False, num_classes=10)
             net_temp.to(device)
             net_temp.train()
             optimizer = torch.optim.AdamW(net_temp.parameters(),                                          
