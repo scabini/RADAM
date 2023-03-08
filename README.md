@@ -13,7 +13,7 @@ Uses deep neural networks available in ```timm==0.6.7``` for texture feature ext
 ## Usage of the RADAM module
 
 * Check ```standalone_RADAM_example.py```
-```
+```python
 net = timm.create_model(model, features_only=True, pretrained=True, output_stride=8)
 texture_representation = RADAM(device, z, (w,h))(net(input_batch))
 ```
