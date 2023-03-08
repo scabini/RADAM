@@ -10,6 +10,12 @@ Uses deep neural networks available in ```timm==0.6.7``` for texture feature ext
     <img src="figures/radam.png" height="440px">
 </p>
 
+RADAM achieves state-of-the-art texture analysis performance  without ever fine-tuning the pre-trained backbones, and using only a linear SVM for classification.
+
+<p align="center">
+    <img src="figures/results.png" height="640px">
+</p>
+
 ## Usage of the RADAM module
 
 * Check ```standalone_RADAM_example.py```
