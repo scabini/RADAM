@@ -55,6 +55,23 @@ Pay attention to args:
  * ```--data_path``` (path to load/download datasets)
  * ```--output_path``` (path to save extracted features and classification results, need 2 subfolders inside: feature_matrix/ and classification/)
 
+
+
+## Credits
+
+If you use our code or methods, please cite the paper:
+
+L. Scabini, K. Zielinski, L. Ribas, W. Gonçalves, B. De Baets, and O. Bruno. RADAM: Texture recognition through randomized aggregated encoding of deep activation maps. arXiv preprint arXiv:2303.04554, 2023.
+
+```
+@article{scabini2023radam,
+  title={RADAM: Texture Recognition through Randomized Aggregated Encoding of Deep Activation Maps},
+  author={Scabini, Leonardo and Zielinski, Kallil and Ribas, Lucas and Gonçalves, Wesley and De Baets, Bernard and Bruno, Odemir},
+  journal={arXiv preprint arXiv:2303.04554},
+  year={2023}
+}
+```   
+
 ____________________________________________________________________________________________________________________________________________ 
 
  <p align="center">
