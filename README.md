@@ -1,12 +1,14 @@
 # RADAM: Texture Recognition through Randomized Aggregated Encoding of Deep Activation Maps
  
-Uses deep neural networks available in ```timm==0.6.7``` for texture feature extraction, and then "classic" machine learning classification is done with ```scikit-learn``` classifiers. Several dataloaders are available for texture benchmarks, see ```datasets.py```. RADAM works practically with any architecture compatible with timm's ```features_only=True``` mode. See ```standalone_RADAM_example.py``` for getting started.
+ https://arxiv.org/abs/2303.04554
+ 
+RADAM uses deep neural networks available in ```timm==0.6.7``` for texture feature extraction, and then "classic" machine learning classification is done with ```scikit-learn``` classifiers. Several dataloaders are available for texture benchmarks, see ```datasets.py```. RADAM works practically with any architecture compatible with timm's ```features_only=True``` mode. See ```standalone_RADAM_example.py``` for getting started.
 
 <p align="center">
     <img src="figures/radam.png" height="440px">
 </p>
 
-RADAM achieves state-of-the-art texture analysis performance  without ever fine-tuning the pre-trained backbones, and using only a linear SVM for classification.
+RADAM achieves state-of-the-art texture analysis performance without ever fine-tuning the pre-trained backbones, and using only a linear SVM for classification.
 
 <p align="center">
     <img src="figures/results.png" height="640px">
