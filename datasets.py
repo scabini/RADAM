@@ -15,6 +15,7 @@ from torchvision.datasets.utils import verify_str_arg, download_and_extract_arch
 from typing import Optional, Callable
 import pathlib
 from PIL import Image
+import numpy as np
 
 #this is for getting all images in a directory (including subdirs)
 def getListOfFiles(dirName):
@@ -29,6 +30,96 @@ def getListOfFiles(dirName):
             allFiles.append(fullPath)
                 
     return allFiles
+
+class Vistex(Dataset):
+    """Vistex    
+    """    
+    def __init__(self, root, transform=None, load_all=True, grayscale=False):
+        """
+        Args:
+            root_dir (string): Directory with all the images.
+            transform (callable, optional): Optional transform to be applied
+                on a sample.
+        """
+        self.grayscale=grayscale
+        self._image_files = getListOfFiles(root)
+        self.transform = transform
+        self.load_all=load_all
+        self.data = []
+        self.targets = []
+        if self.load_all:
+            for img_name in self._image_files:
+                if self.grayscale:
+                    self.data.append(Image.open(img_name).convert('L').convert('RGB'))
+                else:
+                    self.data.append(Image.open(img_name).convert('RGB'))                     
+                self.targets.append(int(ntpath.basename(img_name).split('_')[0][1:]))
+        print(np.unique(self.targets), 'classes')
+    def __len__(self):
+        return len(self.data)
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()        
+        if self.load_all:
+            image = self.data[idx]
+            target = self.targets[idx]
+        else:
+            img_name = self._image_files[idx]
+            if self.grayscale:
+                image = Image.open(img_name).convert('L').convert('RGB')
+            else:
+                image = Image.open(img_name).convert('RGB')                
+            target = int(ntpath.basename(img_name).split('_')[0][1:])        
+        if self.transform:
+            image = self.transform(image)
+        return image, target
+
+
+class CURet(Dataset):
+    """CURet    
+    """    
+    def __init__(self, root, transform=None, load_all=True, grayscale=False):
+        """
+        Args:
+            root_dir (string): Directory with all the images.
+            transform (callable, optional): Optional transform to be applied
+                on a sample.
+        """
+        self.grayscale=grayscale
+        self._image_files = getListOfFiles(root)
+        self.transform = transform
+        self.load_all=load_all
+        self.data = []
+        self.targets = []
+        if self.load_all:
+            for img_name in self._image_files:
+                if self.grayscale:
+                    self.data.append(Image.open(img_name).convert('L').convert('RGB'))
+                else:
+                    self.data.append(Image.open(img_name).convert('RGB'))                     
+                self.targets.append(int(ntpath.basename(img_name).split('_')[0]))
+        print(np.unique(self.targets), 'classes')
+
+    def __len__(self):
+        return len(self.data)
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()        
+        if self.load_all:
+            image = self.data[idx]
+            target = self.targets[idx]
+        else:
+            img_name = self._image_files[idx]
+            if self.grayscale:
+                image = Image.open(img_name).convert('L').convert('RGB')
+            else:
+                image = Image.open(img_name).convert('RGB')                
+            target = int(ntpath.basename(img_name).split('_')[0])        
+        if self.transform:
+            image = self.transform(image)
+        return image, target
+
+
 
 class USPtex(Dataset):
     """USPtex - natural texture dataset
@@ -58,7 +149,7 @@ class USPtex(Dataset):
                     self.data.append(Image.open(img_name).convert('RGB'))  
                     
                 self.targets.append(int(ntpath.basename(img_name).split('_')[0][1:]))
-
+        
     def __len__(self):
         return len(self.data)
 

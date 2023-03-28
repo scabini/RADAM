@@ -65,9 +65,11 @@ if __name__ == "__main__":
     
     DATASETS_ = {'DTD' : datasets.DTD,
                  'FMD' : datasets.FMD,
-                 # 'USPtex': datasets.USPtex,
+                 'Vistex': datasets.Vistex,
+                  'USPtex': datasets.USPtex,
+                  'CURet': datasets.CURet,
                  'LeavesTex1200': datasets.LeavesTex1200,
-                 # 'MBT': datasets.MBT,
+                  'MBT': datasets.MBT,
                  'KTH-TIPS2-b': datasets.KTH_TIPS2_b,
                  'Outex' : datasets.Outex,
                  'MINC': datasets.MINC,
@@ -120,6 +122,9 @@ if __name__ == "__main__":
     elif args.dataset == 'MINC'  or args.dataset == 'GTOS':
         args.K = 5 #MINC and GTOS have a fixed set of 5 splits
     elif args.dataset == 'FMD' or args.dataset == 'LeavesTex1200':
+        args.K = 10
+        args.iterations = 10
+    else:
         args.K = 10
         args.iterations = 10
      
@@ -322,7 +327,7 @@ if __name__ == "__main__":
                     # SVM = RandomizedSearchCV(SVM, param_space, n_iter=10, n_jobs=total_cores*2, cv=2, random_state=seed)
                     start_time2 = time.time()                    
                     SVM.fit(X_train,Y_train)
-                    print(f"SVM time: {time.time()-start_time2:.4f}")
+                    # print(f"SVM time: {time.time()-start_time2:.4f}")
                     
                     preds=SVM.predict(X_test)            
                     preds_SVM.append(preds)            
