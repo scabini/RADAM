@@ -16,13 +16,15 @@ You can also find a 'requirements.yml' file attached, with the libraries we used
 model = 'convnext_nano' #select the timm backbone to be coupled with RADAM
 
 import timm
+#pay attention to the "output_stride". 
+#8 works particularly with convnext_nano but may not work with other backbones
 net = timm.create_model(model, features_only=True, pretrained=True, output_stride=8)
 
 import numpy as np
 import torch
 device = "cuda" if torch.cuda.is_available() else "cpu"
 net.to(device)
-act_maps = net(torch.zeros(1,3,224,224))
+act_maps = net(torch.zeros(1,3,224,224).to(device))
 z = sum([d.size()[1] for d in act_maps])
 half_depth = int(np.round(len(act_maps)/2))
 w = act_maps[half_depth].size()[2]
@@ -120,6 +122,11 @@ def make_orthogonal(tensor):
 
 import math
 def positionalencoding2d(d_model, height, width):
+    d_model_orig = d_model
+    if d_model % 4 != 0:
+        d_model = d_model+2   #little fix for unsoported dims
+    else:
+        d_model = d_model_orig           
     pe = torch.zeros(d_model, height, width)
     d_model = int(d_model / 2)
     div_term = torch.exp(torch.arange(0., d_model, 2) *
@@ -130,10 +137,10 @@ def positionalencoding2d(d_model, height, width):
     pe[1:d_model:2, :, :] = torch.cos(pos_w * div_term).transpose(0, 1).unsqueeze(1).repeat(1, height, 1)
     pe[d_model::2, :, :] = torch.sin(pos_h * div_term).transpose(0, 1).unsqueeze(2).repeat(1, 1, width)
     pe[d_model + 1::2, :, :] = torch.cos(pos_h * div_term).transpose(0, 1).unsqueeze(2).repeat(1, 1, width)
-    return pe
+    return pe[:d_model_orig, :, :]
 
 #testing with an empty input tensor
-input_batch = torch.zeros(1,3,224,224)
+input_batch = torch.zeros(1,3,224,224).to(device)
 texture_representation = RADAM(device, z, (w,h))(net(input_batch))
 
 #You can then use 'texture_representation's of a set of images to train a
