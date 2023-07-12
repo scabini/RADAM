@@ -66,9 +66,11 @@ L. Scabini, K. Zielinski, L. Ribas, W. Gonçalves, B. De Baets, and O. Bruno. RA
 ```
 @article{scabini2023radam,
   title={RADAM: Texture Recognition through Randomized Aggregated Encoding of Deep Activation Maps},
-  author={Scabini, Leonardo and Zielinski, Kallil and Ribas, Lucas and Gonçalves, Wesley and De Baets, Bernard and Bruno, Odemir},
-  journal={arXiv preprint arXiv:2303.04554},
-  year={2023}
+  author={Scabini, Leonardo and Zielinski, Kallil M and Ribas, Lucas C and Gonalves, Wesley N and De Baets, Bernard and Bruno, Odemir M},
+  journal={Pattern Recognition},
+  pages={109802},
+  year={2023},
+  publisher={Elsevier}
 }
 ```   
 
