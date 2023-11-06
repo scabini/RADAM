@@ -42,6 +42,13 @@ texture_representation = RADAM(device, z, (w,h))(net(input_batch))
 conda env create -f requirements.yml
 conda activate timm_tfe
 ```
+
+* You may need to add conda-forge to your anaconda channel list in order to find some of the package versions we used:
+```
+conda config --add channels conda-forge
+```
+* The code should work with newer versions of torch and timm, but may require minimal adjustments (especially for the timm models, you should check their exact name on your version)
+
 ## Setup used for experiments
 
 * Linux Ubuntu x86-64 18.04.5 LTS (Bionic Beaver)
