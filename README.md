@@ -12,7 +12,7 @@
 <br>
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/radam-texture-recognition-through-randomized-1/image-classification-on-kth-tips2)](https://paperswithcode.com/sota/image-classification-on-kth-tips2?p=radam-texture-recognition-through-randomized-1)
  
-RADAM uses deep neural networks available in ```timm==0.6.7``` for texture feature extraction, and then "classic" machine learning classification is done with ```scikit-learn``` classifiers. Several dataloaders are available for texture benchmarks, see ```datasets.py```. RADAM works practically with any architecture compatible with timm's ```features_only=True``` mode. See ```standalone_RADAM_example.py``` for getting started.
+RADAM uses deep neural networks (CNNs) available in ```timm==0.6.7``` for texture feature extraction, and then "classic" machine learning classification is done with ```scikit-learn``` classifiers. Several dataloaders are available for texture benchmarks, see ```datasets.py```. RADAM works practically with any CNN architecture compatible with timm's ```features_only=True``` mode. See ```standalone_RADAM_example.py``` for getting started.
 
 <p align="center">
     <img src="figures/radam.png" height="420px">
